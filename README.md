@@ -38,7 +38,8 @@ python main.py --store https://your-store.example --suspect https://suspicious-c
 Flags: `--suspect URL` (repeatable) adds a known suspect directly, `--fresh` ignores `cache/state.json`,
 `--watch` re-runs the hunt every 6 hours (APScheduler).
 
-Outputs: `output/evidence_<domain>.pdf`, `output/alert_email.eml` (when no mail service), `cache/state.json`.
+Outputs: `output/evidence_<domain>.pdf` (digitally signed, print-only; SHA-256 fingerprint in `<pdf>.sha256`
+and in the alert e-mail; check with `prarthana.alert.verify_evidence(path)`), `output/alert_email.eml` (when no mail service), `cache/state.json`.
 
 ## Tests
 ```bash

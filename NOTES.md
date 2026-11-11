@@ -18,7 +18,7 @@
   delivered via Resend to `GMAIL_ADDRESS` with the real abuse contact shown in the subject.
 - **#1 Planner** (`prarthana/planner.py`, `main.py`): LangGraph StateGraph, conditional edges driven by state,
   `cache/state.json` persistence, `--watch` (APScheduler, every 6 h). Live-tested on a real public store.
-- Tests: `python -m pytest -q tests` → 19 passed (unit: scorer math, masking/hashing, price/contact
+- Tests: `python -m pytest -q tests` → 25 passed (unit: scorer math, masking/hashing, price/contact
   extraction, planner decisions; e2e: local store + clone; abuse-report confirmation gate).
 
 ## Gemini model
@@ -93,6 +93,42 @@
   including the scorer's reasons.
 - The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
 
+## Tamper-evident evidence PDFs (`prarthana/signing.py`)
+- Every evidence PDF is made tamper-evident right after it is generated (`alert.make_evidence_pdf`):
+  1. **Permissions:** pyHanko re-writes the PDF with AES-256 encryption (PDF 2.0), an **empty user password**
+     (opens normally, no prompt) and a **random owner password** that is never stored. Allowed: printing,
+     copying text, accessibility. Not allowed: editing, annotations, form filling, page assembly.
+     (ReportLab's own encryption was not used: its AES mode needs `pyaes`, which does not build here, and
+     RC4 is obsolete.)
+  2. **Signature:** a pyHanko *certification* signature (DocMDP "no changes allowed") with a visible stamp in the
+     "17 / SIGNATURE" card on the last page: "Digitally signed by FORGE · <UTC time> · any change after signing
+     invalidates this signature". The signature covers the entire file (poppler `pdfsig`: "Total document
+     signed", "Signature is Valid").
+  3. **Fingerprint:** SHA-256 of the final signed file, stored in `suspect.evidence_sha256` (so in
+     `cache/state.json`), written next to the PDF as `<pdf>.sha256`, logged
+     (`evidence: signed <file> sha256=<hash>`), and put in the alert e-mail ("Evidence fingerprint: <sha256>")
+     and in abuse reports.
+- Signing certificate: self-signed "FORGE Evidence Signer" (RSA-3072, 5 years), created once in
+  `cache/signing/` (`forge_signer_key.pem`, mode 600, + `forge_signer_cert.pem`). `cache/` is git-ignored:
+  **never commit the key.** Deleting it makes FORGE create a new key, and older PDFs then no longer verify
+  (they were signed by a key FORGE no longer trusts). Keep a backup of `cache/signing/` if old PDFs matter.
+- `verify_evidence(pdf_path) -> bool` (in `prarthana/alert.py`): True only if the file's SHA-256 equals the
+  recorded fingerprint (sidecar, else state.json) **and** the pyHanko signature is intact, valid, made by the
+  FORGE certificate, covers the whole file, and nothing changed after signing. `send_abuse_report()` re-checks
+  the PDF with it and regenerates a fresh signed PDF if the old one was changed.
+- **What Adobe Acrobat / Reader will show:** the certificate is self-signed, so Acrobat shows the signer as
+  **"signer identity unknown"** / "validity unknown" (the certificate is not in Adobe's trust list; the same
+  is true in poppler: "Certificate issuer is unknown"). That only concerns *who* signed. Integrity is still
+  checked: if anyone changes the file after signing, Acrobat reports **"the document has been modified"** /
+  "signature is invalid". To make Acrobat show the signer as trusted, the brand owner can trust
+  `forge_signer_cert.pem` in Acrobat (Preferences → Signatures → Identities & Trusted Certificates), or a
+  production version can use a certificate from an Adobe-trusted (AATL) CA.
+- Caveat (from the pyHanko docs): PDF encryption on its own is not tamper-proof; the **signature + SHA-256
+  fingerprint** are what make tampering detectable. The permissions only stop casual editing in normal viewers.
+- Tests (`tests/test_signing.py`): sign → `verify_evidence` True; flip one byte → False; append bytes after
+  signing → False; signed by a different key → False; permissions are print-only; key file is mode 600.
+  The e2e test also checks the fingerprint in state.json, in the log and in the alert e-mail.
+
 ## For Surabhi — what to use / provide
 Use from my code:
 ```python
@@ -100,7 +136,9 @@ from prarthana.alert import confirm, send_abuse_report, make_evidence_pdf
 confirm(suspect, yes=True)            # dashboard "Yes, it's fake" -> status "confirmed" (False -> "not_fake")
 send_abuse_report(suspect, brand_dna) # only works when status == "confirmed"; sets status "reported"
 ```
-- Evidence PDFs: `output/evidence_<domain>.pdf` (path also in `suspect.pdf_path`).
+- Evidence PDFs: `output/evidence_<domain>.pdf` (path also in `suspect.pdf_path`), digitally signed;
+  fingerprint in `suspect.evidence_sha256`. Check a PDF with `verify_evidence(path)` (e.g. show a
+  "verified" badge in the dashboard).
 - Dashboard text: `suspect.verdict` (3 sentences), `suspect.score`, `suspect.label`, `suspect.reasons`,
   `suspect.contacts_masked`, `suspect.screenshot_path`, `suspect.campaign_id`, `suspect.status`.
 - All results: `cache/state.json` (load with `schemas.state_from_dict(json.load(...))`); after confirming,

@@ -93,6 +93,7 @@ class Suspect:
     image_sha256s: list = field(default_factory=list)
     pdf_path: str = ""
     abuse_email: str = ""
+    evidence_sha256: str = ""  # SHA-256 of the final signed evidence PDF ("evidence fingerprint")
 
 
 @dataclass

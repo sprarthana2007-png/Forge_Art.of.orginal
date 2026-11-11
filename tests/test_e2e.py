@@ -3,6 +3,9 @@
 Uses surabhi/demo_sites/{store,clone} if they exist, else tests/fixtures/{store,clone}.
 External services are disabled (no keys) so the test is deterministic and sends no e-mail.
 """
+import email
+import email.policy
+import hashlib
 import json
 import os
 import socket
@@ -63,6 +66,21 @@ def test_clone_flagged_real_store_ignored(tmp_path):
     assert by_url[store]["label"] == "ignored"
     # evidence + alert written; no raw contacts anywhere in the saved state
     assert Path(by_url[clone]["pdf_path"]).exists()
+    # tamper-evident: signed PDF, fingerprint stored in state.json and written next to the PDF
+    sha = by_url[clone]["evidence_sha256"]
+    assert len(sha) == 64
+    assert hashlib.sha256(Path(by_url[clone]["pdf_path"]).read_bytes()).hexdigest() == sha
+    assert f"sha256={sha}" in r.stdout
+    msg = email.message_from_bytes((tmp_path / "output" / "alert_email.eml").read_bytes(),
+                                   policy=email.policy.default)
+    assert f"Evidence fingerprint: {sha}" in msg.get_body(("plain",)).get_content()
+    import prarthana.signing as signing
+    real_cache = signing.CACHE
+    try:
+        signing.CACHE = tmp_path / "cache"          # the subprocess signed with the test's own key
+        assert signing.verify_pdf(by_url[clone]["pdf_path"], expected=sha)
+    finally:
+        signing.CACHE = real_cache
     assert (tmp_path / "output" / "alert_email.eml").exists()
     raw = (tmp_path / "cache" / "state.json").read_text()
     assert "91234" not in raw and "mittisale@okaxis" not in raw

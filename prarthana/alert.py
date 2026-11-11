@@ -34,10 +34,27 @@ def _safe_name(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", s).strip("_")[:60]
 
 
-def make_evidence_pdf(s: Suspect, dna: BrandDNA) -> str:
-    """3-page forensic evidence report (layout lives in prarthana/evidence_pdf.py). Returns the PDF path."""
-    from prarthana.evidence_pdf import build_evidence_pdf
-    return build_evidence_pdf(s, dna)
+def make_evidence_pdf(s: Suspect, dna: BrandDNA, state_log=None) -> str:
+    """3-page evidence report (layout: prarthana/evidence_pdf.py), then made tamper-evident
+    (prarthana/signing.py): print-only permissions + pyHanko certification signature. The SHA-256 of the
+    signed file is stored in s.evidence_sha256. Returns the PDF path."""
+    from prarthana.evidence_pdf import SIG_BOX, build_evidence_pdf
+    from prarthana.signing import sign_pdf
+    path = build_evidence_pdf(s, dna)
+    try:
+        s.evidence_sha256 = sign_pdf(path, box=SIG_BOX, state_log=state_log)
+    except Exception as e:
+        s.evidence_sha256 = ""
+        log(state_log, f"evidence: signing FAILED for {Path(path).name} ({type(e).__name__}: {e}); PDF is unsigned")
+    return path
+
+
+def verify_evidence(pdf_path) -> bool:
+    """Re-check an evidence PDF: its SHA-256 must equal the fingerprint recorded at signing time
+    (<pdf>.sha256 sidecar or cache/state.json) and the pyHanko signature must be intact, valid, made by the
+    FORGE certificate, cover the whole file, with no changes after signing."""
+    from prarthana.signing import verify_pdf
+    return verify_pdf(pdf_path)
 
 
 # ------------------------------------------------------------------ email transport
@@ -115,10 +132,12 @@ def _alert_html(flagged: list, dna: BrandDNA) -> str:
     <td style="padding-left:14px;font:12px Helvetica,Arial,sans-serif;color:#1B2433;line-height:19px">
       <b>{n_img}</b> brand images copied &nbsp;·&nbsp; <b>{len(s.contacts_masked or [])}</b> unofficial contacts
       &nbsp;·&nbsp; domain age <b>{age}</b><br>
-      <span style="color:#5B6675">Case {case_id(s)} &nbsp;·&nbsp; evidence PDF attached</span></td>
+      <span style="color:#5B6675">Case {case_id(s)} &nbsp;·&nbsp; signed evidence PDF attached</span></td>
    </tr></table>
    <div style="margin-top:12px;background:#FFF4F1;border-left:3px solid #FF6B57;padding:10px 12px;
      font:13px Helvetica,Arial,sans-serif;color:#1B2433;line-height:19px">{escape(s.verdict or "")}</div>
+   <div style="margin-top:10px;font:11px 'Courier New',monospace;color:#1B2433;word-break:break-all">
+     <b>Evidence fingerprint:</b> {s.evidence_sha256 or "unsigned"}</div>
   </td></tr></table>
 </td></tr>""")
     return f"""<!doctype html><html><body style="margin:0;background:#E9EDF2">
@@ -151,12 +170,14 @@ def send_alert(suspects: list, dna: BrandDNA, state_log=None) -> str:
     if not flagged:
         log(state_log, "alert: nothing to report")
         return "none"
-    pdfs = [make_evidence_pdf(s, dna) for s in flagged]
-    lines = [f"- {s.url}  score {s.score}/100 ({s.label})" for s in flagged]
+    pdfs = [make_evidence_pdf(s, dna, state_log) for s in flagged]
+    lines = [f"- {s.url}  score {s.score}/100 ({s.label})\n  Evidence fingerprint: {s.evidence_sha256 or 'unsigned'}"
+             for s in flagged]
     body = (f"Hello,\n\nFORGE found {plural(len(flagged), 'possible fake')} of your store {dna.store_url}:\n\n"
             + "\n".join(lines) +
-            "\n\nEvidence PDFs are attached. Please confirm in your FORGE dashboard. "
-            "Nothing is reported until you confirm.\n\n- FORGE")
+            "\n\nEvidence PDFs are attached. Each one is digitally signed by FORGE; the fingerprint is the "
+            "SHA-256 of the attached file, so any change to it is detectable.\n\n"
+            "Please confirm in your FORGE dashboard. Nothing is reported until you confirm.\n\n- FORGE")
     return send_email(env("GMAIL_ADDRESS"),
                       f"{plural(len(flagged), 'possible fake')} of your store. Please confirm in your FORGE dashboard.",
                       body, pdfs, "alert_email.eml", state_log, html=_alert_html(flagged, dna))
@@ -195,11 +216,17 @@ def send_abuse_report(suspect: Suspect, dna: BrandDNA | None = None, state_log=N
     subject = f"Abuse report: counterfeit store {registrable(suspect.domain)} impersonating {dna.brand_name}"
     if demo:
         subject = f"[DEMO MODE - would be sent to {abuse or 'registrar abuse contact (not found)'}] " + subject
-    pdf = suspect.pdf_path if suspect.pdf_path and Path(suspect.pdf_path).exists() else make_evidence_pdf(suspect, dna)
+    pdf = suspect.pdf_path
+    if not (pdf and Path(pdf).exists() and verify_evidence(pdf)):
+        if pdf and Path(pdf).exists():
+            log(state_log, f"abuse: {Path(pdf).name} failed verification (changed or unsigned); regenerating")
+        pdf = make_evidence_pdf(suspect, dna, state_log)
     body = (f"Hello,\n\nThe brand owner of {dna.store_url} has confirmed that {suspect.url} is a counterfeit "
             f"copy of their store (FORGE score {suspect.score}/100).\n\n{suspect.verdict}\n\nEvidence:\n"
             + "\n".join("- " + r for r in suspect.reasons) +
-            "\n\nThe full evidence PDF is attached. Please investigate and take the site down.\n\n- FORGE, on behalf of "
+            "\n\nThe full evidence PDF is attached. It is digitally signed by FORGE.\n"
+            f"Evidence fingerprint: {suspect.evidence_sha256 or 'unsigned'}\n\n"
+            "Please investigate and take the site down.\n\n- FORGE, on behalf of "
             f"{dna.brand_name}")
     how = send_email(to, subject, body, [pdf], f"abuse_{_safe_name(suspect.domain)}.eml", state_log)
     suspect.status = "reported"

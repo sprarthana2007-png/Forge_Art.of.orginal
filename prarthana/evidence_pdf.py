@@ -71,6 +71,9 @@ P = 13          # card inner padding
 CW = W - 2 * M
 TOP = H - 64    # content starts under the header
 BOTTOM = 30     # content ends above the footer
+SIG_H = 70      # height of the "SIGNATURE" card at the bottom of the last page
+# where pyHanko draws the visible signature stamp (x1, y1, x2, y2), inside the SIGNATURE card
+SIG_BOX = (int(M + P), int(BOTTOM + 10), int(W - M - P), int(BOTTOM + SIG_H - 28))
 
 VERDICT_TEXT = {"likely_fake": "Likely fake.", "suspicious": "Suspicious.", "ignored": "No threat found."}
 LABEL_TEXT = {"likely_fake": "likely fake", "suspicious": "suspicious", "ignored": "no threat found"}
@@ -779,15 +782,16 @@ class Doc:
         self.text(M + P, yy - 42, self.fit(msg, CW - 2 * P, 8.4, SANS), 8.4, SANS, BORDER)
         self.y = y0 - hh - G
 
-        # 16 next steps — numbered list, stretches to the footer
+        # 16 next steps — numbered list, stretches down to the signature card
         y0 = self.y
-        yy = self.card(M, y0, CW, y0 - BOTTOM, "next steps for the brand owner")
+        nb = BOTTOM + SIG_H + G          # bottom of the next-steps card
+        yy = self.card(M, y0, CW, y0 - nb, "next steps for the brand owner")
         tips = [("Review", "Compare the screenshots and image pairs on page 2 with your own store."),
                 ("Confirm", "Press \"Yes, it's fake\" or \"Not fake\" in your FORGE dashboard."),
                 ("Report", "FORGE then e-mails this PDF to the registrar's abuse contact shown above."),
                 ("Warn customers", "Post your official domain and payment details on your social channels."),
                 ("Watch", "Run FORGE with --watch to re-hunt every 6 hours for new copies.")]
-        step = min(40, (yy - BOTTOM - 8) / len(tips))
+        step = min(40, (yy - nb - 8) / len(tips))
         for i, (t, d) in enumerate(tips):
             ty = yy - i * step
             if i:
@@ -795,6 +799,11 @@ class Doc:
             self.text(M + P, ty - step / 2 - 4, f"{i + 1:02d}", 13, SERIF, ORANGE)
             self.text(M + P + 30, ty - step / 2 - 3, t, 9.6, SANS_M, INK)
             self.text(M + P + 130, ty - step / 2 - 3, d, 8.6, SANS, MUTED)
+        # 17 signature — pyHanko draws the visible signature stamp into SIG_BOX after the PDF is generated
+        y0 = BOTTOM + SIG_H
+        self.card(M, y0, CW, SIG_H, "signature")
+        self.text(M + CW - P, y0 - P - 6, "pyHanko · PAdES · certified, no changes allowed", 6.8, MONO, MUTED,
+                  right=True)
         self.finish_page()
 
 
