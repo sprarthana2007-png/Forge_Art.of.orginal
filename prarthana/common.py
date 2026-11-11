@@ -1,0 +1,77 @@
+"""Small helpers shared by Prarthana's modules: env, cache, logging, domain parsing."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+from urllib.parse import urlparse
+
+ROOT = Path(__file__).resolve().parent.parent
+CACHE = ROOT / "cache"
+OUTPUT = ROOT / "output"
+
+
+def env(name: str, default: str = "") -> str:
+    """Read an env var with ALL whitespace stripped (keys are sometimes pasted with spaces)."""
+    v = os.environ.get(name)
+    if v is None:
+        return default
+    return "".join(v.split())
+
+
+def domain_of(url: str) -> str:
+    """Host (with port if non-default) lower-cased, without leading www."""
+    if "://" not in url:
+        url = "http://" + url
+    p = urlparse(url)
+    host = (p.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    if p.port and p.port not in (80, 443):
+        return f"{host}:{p.port}"
+    return host
+
+
+def registrable(domain: str) -> str:
+    """Domain without port (for RDAP / allow-list)."""
+    return domain.split(":")[0]
+
+
+def cache_path(sub: str, key: str, ext: str = "json") -> Path:
+    d = CACHE / sub
+    d.mkdir(parents=True, exist_ok=True)
+    return d / f"{hashlib.sha256(key.encode()).hexdigest()[:32]}.{ext}"
+
+
+def cache_get(sub: str, key: str):
+    p = cache_path(sub, key)
+    if p.exists():
+        try:
+            return json.loads(p.read_text())
+        except Exception:
+            return None
+    return None
+
+
+def cache_set(sub: str, key: str, value) -> None:
+    cache_path(sub, key).write_text(json.dumps(value, indent=1, default=list))
+
+
+def log(state_log, msg: str) -> None:
+    print(f"[forge] {msg}")
+    if state_log is not None:
+        state_log.append(msg)
+
+
+def launch_chromium(p):
+    """Launch headless Chromium. Falls back to a pre-installed browser (env CHROMIUM_PATH or
+    /opt/pw-browsers/chromium) when `playwright install chromium` was not run for this version."""
+    import os as _os
+    try:
+        return p.chromium.launch()
+    except Exception:
+        for path in (env("CHROMIUM_PATH"), "/opt/pw-browsers/chromium"):
+            if path and _os.path.exists(path):
+                return p.chromium.launch(executable_path=path)
+        raise
