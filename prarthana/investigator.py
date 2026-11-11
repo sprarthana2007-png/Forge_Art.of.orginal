@@ -141,15 +141,25 @@ def resolve_ip(domain: str):
 
 
 # ------------------------------------------------------------------ page fetch
-def fetch_page(url: str, shot_path: str) -> dict:
-    """Load url in headless Chromium. Returns {text, html, images: {abs_url: bytes}, favicon_url}."""
+def fetch_page(url: str, shot_path: str, profile: str = "desktop") -> dict:
+    """Load url in headless Chromium. Returns {text, html, images: {abs_url: bytes}, favicon_url}.
+    profile="instagram" visits as a shopper from an Instagram ad (phone, Instagram in-app browser, Instagram
+    referrer, fbclid) — used when the cloaking check found that the site hides its real page from bots."""
     from playwright.sync_api import sync_playwright
 
     images = {}
     with sync_playwright() as p:
         browser = launch_chromium(p)
         try:
-            ctx = browser.new_context(user_agent=UA, viewport={"width": 1280, "height": 900})
+            referer = None
+            if profile == "instagram":
+                from prarthana.cloaking import IG_SUFFIX, ad_url
+                phone = dict(p.devices.get("Pixel 7") or p.devices["Pixel 5"])
+                phone["user_agent"] += IG_SUFFIX
+                ctx = browser.new_context(**phone, locale="en-IN", timezone_id="Asia/Kolkata")
+                url, referer = ad_url(url), "https://l.instagram.com/"
+            else:
+                ctx = browser.new_context(user_agent=UA, viewport={"width": 1280, "height": 900})
             page = ctx.new_page()
             page.set_default_timeout(TIMEOUT_MS)
 
@@ -161,7 +171,7 @@ def fetch_page(url: str, shot_path: str) -> dict:
                     pass
 
             page.on("response", on_response)
-            page.goto(url, timeout=TIMEOUT_MS, wait_until="load")
+            page.goto(url, timeout=TIMEOUT_MS, wait_until="load", referer=referer)
             try:
                 page.wait_for_load_state("networkidle", timeout=5000)
             except Exception:
@@ -237,8 +247,11 @@ def compare_images(images: dict, favicon_url: str, dna: BrandDNA):
     return exact, similar, logo_match, all_sha
 
 
-def investigate(suspect: Suspect, dna: BrandDNA, state_log=None, use_cache: bool = True) -> Suspect:
-    """Fill in evidence fields on suspect. Never raises; on failure logs and returns suspect as-is."""
+def investigate(suspect: Suspect, dna: BrandDNA, state_log=None, use_cache: bool = True,
+                cloak: dict | None = None) -> Suspect:
+    """Fill in evidence fields on suspect. Never raises; on failure logs and returns suspect as-is.
+    `cloak`: a check_cloaking() result already computed by the planner; if None it is run here
+    (skipped for the brand's own / allow-listed domains)."""
     suspect.domain = suspect.domain or domain_of(suspect.url)
     key = suspect.url + "|" + (dna.store_url if dna else "")
     cached = cache_get("investigator", key) if use_cache else None
@@ -250,11 +263,24 @@ def investigate(suspect: Suspect, dna: BrandDNA, state_log=None, use_cache: bool
         log(state_log, f"investigate: cache hit {suspect.url}")
         return suspect
 
+    # 3-way cloaking check (#13): if the site hides its scam page from bots, collect evidence as a shopper
+    from prarthana.scorer import is_allowed
+    if cloak is None and not is_allowed(suspect.domain, dna):
+        try:
+            from prarthana.cloaking import check_cloaking
+            cloak = check_cloaking(suspect, state_log=state_log)
+        except Exception as e:
+            log(state_log, f"cloaking: check failed for {suspect.url} ({type(e).__name__})")
+    if cloak:
+        suspect.cloaking_details = cloak
+        suspect.cloaking = bool(cloak.get("cloaking"))
+    profile = "instagram" if suspect.cloaking else "desktop"
+
     shots = CACHE / "screenshots"
     shots.mkdir(parents=True, exist_ok=True)
     shot = shots / (re.sub(r"[^A-Za-z0-9]+", "_", suspect.url)[:80] + ".png")
     try:
-        page = fetch_page(suspect.url, str(shot))
+        page = fetch_page(suspect.url, str(shot), profile=profile)
     except Exception as e:
         log(state_log, f"investigate: could not load {suspect.url}: {type(e).__name__}: {str(e).splitlines()[0][:120]}")
         return suspect
@@ -276,9 +302,9 @@ def investigate(suspect: Suspect, dna: BrandDNA, state_log=None, use_cache: bool
 
     fields = ["screenshot_path", "image_exact_matches", "image_similar_matches", "logo_match",
               "image_sha256s", "prices_found", "contact_hashes", "contacts_masked", "scam_phrases",
-              "domain_age_days", "ip", "domain"]
+              "domain_age_days", "ip", "domain", "cloaking", "cloaking_details"]
     d = asdict(suspect)
     cache_set("investigator", key, {k: d[k] for k in fields})
-    log(state_log, f"investigate: {suspect.url} exact={len(exact)} similar={len(similar)} logo={logo} "
+    log(state_log, f"investigate: {suspect.url} [{profile} view] exact={len(exact)} similar={len(similar)} logo={logo} "
                    f"prices={len(suspect.prices_found)} contacts={len(suspect.contact_hashes)}")
     return suspect

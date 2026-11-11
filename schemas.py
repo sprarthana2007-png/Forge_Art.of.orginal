@@ -94,6 +94,8 @@ class Suspect:
     pdf_path: str = ""
     abuse_email: str = ""
     evidence_sha256: str = ""  # SHA-256 of the final signed evidence PDF ("evidence fingerprint")
+    cloaking: bool = False     # #13: shows a different page to an Instagram-ad visitor than to a normal visitor
+    cloaking_details: dict = field(default_factory=dict)  # check_cloaking() result (visits, differences, ...)
 
 
 @dataclass
@@ -110,6 +112,7 @@ class ForgeState:
     pending_hashes: list = field(default_factory=list)    # campaign image hashes to re-hunt with
     handled_campaigns: list = field(default_factory=list)
     alerted: list = field(default_factory=list)           # URLs already included in an owner alert
+    cloak_queue: list = field(default_factory=list)       # URLs in the order the cloaking check should run
 
 
 # ---------------------------------------------------------------- (de)serialise
@@ -126,6 +129,7 @@ def state_to_dict(st: ForgeState) -> dict:
         "pending_hashes": list(st.pending_hashes),
         "handled_campaigns": list(st.handled_campaigns),
         "alerted": list(st.alerted),
+        "cloak_queue": list(st.cloak_queue),
     }
 
 
@@ -145,4 +149,5 @@ def state_from_dict(d: dict) -> ForgeState:
         pending_hashes=list(d.get("pending_hashes", [])),
         handled_campaigns=list(d.get("handled_campaigns", [])),
         alerted=list(d.get("alerted", [])),
+        cloak_queue=list(d.get("cloak_queue", [])),
     )

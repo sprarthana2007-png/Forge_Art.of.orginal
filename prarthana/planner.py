@@ -22,6 +22,9 @@ from prarthana.alert import send_alert
 
 MAX_ROUNDS = 3
 MAX_INVESTIGATE_PER_ROUND = 12   # keeps a run bounded (each visit can take up to 20 s)
+CLOAK_BUDGET_S = 300             # time budget per round for cloaking checks (env FORGE_CLOAK_BUDGET)
+CLOAK_URLSCAN_MIN_S = 100        # visit 3 (urlscan) needs up to ~100 s; skipped when less budget is left
+CLOAK_FIRST = ("manual", "urlscan_hash", "urlscan_hotlink")  # strongest evidence first for the cloaking check
 STATE_FILE = CACHE / "state.json"
 FOUND_BY_RANK = {"manual": 0, "urlscan_hash": 1, "urlscan_hotlink": 2, "urlscan_title": 3, "name_net": 4}
 
@@ -115,15 +118,44 @@ def node_prioritise(st: ForgeState) -> dict:
     keep_urls = {s.url for s in keep}
     # suspects not investigated this round are dropped from seen_domains so a later run picks them up
     rest = [s for s in new if s.url not in keep_urls]
-    return {"round_new": [s.url for s in keep],
+    # cloaking check order: hotlink / hash matches (and owner reports) first, in case the time budget runs out
+    cloak_queue = [s.url for s in keep if s.found_by in CLOAK_FIRST] + \
+                  [s.url for s in keep if s.found_by not in CLOAK_FIRST]
+    return {"round_new": [s.url for s in keep], "cloak_queue": cloak_queue,
             "suspects": [s for s in st.suspects if s not in rest],
             "seen_domains": set(st.seen_domains) - {s.domain for s in rest},
             "next_step": "investigate"}
 
 
 def node_investigate(st: ForgeState) -> dict:
+    """Cloaking checks first (in cloak_queue order, within a time budget), then the evidence visits."""
+    import os
+    import time
+    from prarthana.cloaking import check_cloaking
+    try:
+        budget = float(os.environ.get("FORGE_CLOAK_BUDGET", CLOAK_BUDGET_S))
+    except ValueError:
+        budget = CLOAK_BUDGET_S
+    by_url = {s.url: s for s in _new(st)}
+    cloak = {}
+    start = time.time()
+    for url in st.cloak_queue or list(by_url):
+        s = by_url.get(url)
+        if s is None or is_allowed(s.domain or domain_of(s.url), st.brand_dna):
+            continue
+        left = budget - (time.time() - start)
+        if left <= 0:
+            cloak[url] = {"cloaking": False, "visits": [], "differences": [], "comparisons": [],
+                          "notes": ["Cloaking check skipped: time budget for this round was used up."],
+                          "visit3_status": "skipped: time budget for this round was used up"}
+            log(st.log, f"cloaking: skipped {url} (time budget used up)")
+            continue
+        try:
+            cloak[url] = check_cloaking(s, use_urlscan=left >= CLOAK_URLSCAN_MIN_S, state_log=st.log)
+        except Exception as e:
+            log(st.log, f"cloaking: failed for {url} ({type(e).__name__})")
     for s in _new(st):
-        investigate(s, st.brand_dna, st.log)
+        investigate(s, st.brand_dna, st.log, cloak=cloak.get(s.url, {}))
     return {"suspects": st.suspects, "next_step": "score"}
 
 

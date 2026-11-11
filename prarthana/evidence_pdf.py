@@ -1,4 +1,4 @@
-"""Evidence PDF for one suspect — "bento" theme (A4, 3 pages: case file, evidence, action).
+"""Evidence PDF for one suspect — "bento" theme (A4, 4 pages: case file, evidence, cloaking check, action).
 
 Rounded cards on a grainy stone page, numbered across the report ("01 / VERDICT" ...). Fonts are embedded
 from prarthana/assets/fonts (Instrument Serif, JetBrains Mono, Inter Tight) with Times / Courier / Helvetica
@@ -87,8 +87,9 @@ SIGNALS = [("Product photos", 30, "Brand product photos re-used (exact or look-a
            ("Price undercut", 15, "Prices at least 40% below the real store"),
            ("Unofficial contacts", 15, "Phone / UPI / e-mail not on the brand's official list"),
            ("Young domain", 10, "Domain registered less than 30 days ago"),
+           ("Cloaking", 10, "Different page for Instagram-ad shoppers than for bots"),
            ("Scam phrases", 0, "Pressure / payment phrases (noted, no points)")]
-SHORT = {"Product photos": "photos", "Logo / favicon": "logo", "Price undercut": "price",
+SHORT = {"Cloaking": "cloaking", "Product photos": "photos", "Logo / favicon": "logo", "Price undercut": "price",
          "Unofficial contacts": "contacts", "Young domain": "domain", "Scam phrases": "phrases", "Note": "note"}
 
 
@@ -221,7 +222,8 @@ def abuse_contacts(s: Suspect) -> dict:
 def breakdown(s: Suspect) -> list:
     """[(signal, points, reason, colour)] parsed from the scorer's reasons (orange shades by position)."""
     rules = [("photo", "Product photos"), ("logo", "Logo / favicon"), ("price", "Price undercut"),
-             ("contact", "Unofficial contacts"), ("domain registered", "Young domain"), ("scam", "Scam phrases")]
+             ("contact", "Unofficial contacts"), ("domain registered", "Young domain"), ("cloaking", "Cloaking"),
+             ("scam", "Scam phrases")]
     rows, k = [], 0
     for r in s.reasons or []:
         m = re.match(r"^\+(\d+):\s*(.*)$", r)
@@ -388,9 +390,19 @@ class Doc:
             try:
                 im = Image.open(path).convert("RGB")
                 ar = w / h
-                if im.width / im.height > ar:          # too wide: crop sides
+                if top:                                 # screenshot: keep the top of the page
+                    im = im.crop((0, 0, im.width, min(im.height, int(im.width / ar) if im.width / im.height <= ar
+                                                      else im.height)))
+                if im.width / im.height > ar:          # too wide: crop sides, centred on the page content
                     nw = int(im.height * ar)
-                    l = (im.width - nw) // 2
+                    cx = im.width // 2
+                    if top:
+                        from PIL import ImageChops
+                        bg = Image.new("RGB", im.size, im.getpixel((im.width - 1, im.height - 1)))
+                        box = ImageChops.difference(im, bg).convert("L").point(lambda v: 255 if v > 18 else 0).getbbox()
+                        if box:
+                            cx = (box[0] + box[2]) // 2
+                    l = min(max(0, cx - nw // 2), im.width - nw)
                     im = im.crop((l, 0, l + nw, im.height))
                 else:                                   # too tall: crop bottom (or centre)
                     nh = int(im.width / ar)
@@ -472,15 +484,25 @@ class Doc:
         bw = wl - 2 * P
         self.seg_bar(x + P, by, bw, 12, rows, MUTED)
         self.ticks(x + P, by - 11, bw, BORDER)
-        lx = x + P
-        for name, pts, _, col in rows:
-            if pts <= 0:
-                continue
-            lab = f"{SHORT.get(name, name)} +{pts}"
-            c.setFillColor(col)
-            c.rect(lx, y0 - ha + 17, 7, 7, stroke=0, fill=1)
-            self.text(lx + 10, y0 - ha + 18, lab, 6.6, MONO, BORDER)
-            lx += 10 + self.width(lab, 6.6, MONO) + 10
+        items = [(f"{SHORT.get(name, name)} +{pts}", col) for name, pts, _, col in rows if pts > 0]
+        lines, cur, cw_ = [], [], 0
+        for lab, col in items:
+            iw = 10 + self.width(lab, 6.6, MONO) + 10
+            if cur and cw_ + iw > wl - 2 * P:
+                lines.append(cur)
+                cur, cw_ = [], 0
+            cur.append((lab, col))
+            cw_ += iw
+        if cur:
+            lines.append(cur)
+        for li, line in enumerate(lines[:2]):
+            ly = y0 - ha + 17 + (len(lines[:2]) - 1 - li) * 11
+            lx = x + P
+            for lab, col in line:
+                c.setFillColor(col)
+                c.rect(lx, ly, 7, 7, stroke=0, fill=1)
+                self.text(lx + 10, ly + 1, lab, 6.6, MONO, BORDER)
+                lx += 10 + self.width(lab, 6.6, MONO) + 10
 
         # 02 SUSPECT — orange card
         xr = M + wl + G
@@ -526,7 +548,7 @@ class Doc:
 
         xs = M + wr + G
         yy = self.card(xs, y1, wl, hb, "signals")
-        self.text(xs + wl - P, y1 - P - 6, f"{len([r for r in rows if r[1]])} of 5 scored", 6.8, MONO, MUTED,
+        self.text(xs + wl - P, y1 - P - 6, f"{len([r for r in rows if r[1]])} of {len([x for x in SIGNALS if x[1]])} scored", 6.8, MONO, MUTED,
                   right=True)
         got = {}
         for name, pts, _, col in rows:
@@ -574,7 +596,7 @@ class Doc:
         self.new_page()
 
         # 07 / 08 screenshots in arches
-        hh = 246
+        hh = 228
         bw = (CW - G) / 2
         y0 = self.y
         shots = [("original", SAGE, assets.get("screenshot"), self.dna.store_url),
@@ -583,7 +605,7 @@ class Doc:
             x = M + i * (bw + G)
             yy = self.card(x, y0, bw, hh, "screenshot")
             self.pill(x + bw - P, y0 - P - 10, tag, fill=colr, right=True)
-            ih = 152
+            ih = 134
             self.arch_image(path, x + P, yy - ih - 2, bw - 2 * P, ih, top=True,
                             outline=SAGE if tag == "original" else ORANGE)
             ly = yy - ih - 16
@@ -694,6 +716,142 @@ class Doc:
         self.finish_page()
 
     # ------------------------------------------------------------------ PAGE 3 — action
+    # ------------------------------------------------------------------ PAGE 3 — cloaking check (#13)
+    @property
+    def cloak(self) -> dict:
+        return getattr(self.s, "cloaking_details", None) or {}
+
+    def cloak_summary(self) -> str:
+        cl = self.cloak
+        if not cl.get("visits"):
+            return "Not run for this suspect" + (f" ({cl['visit3_status'].replace('skipped: ', '')})."
+                                                 if cl.get("visit3_status") else ".")
+        names = ", ".join(v["label"] for v in cl["visits"])
+        res = "cloaking detected" if cl.get("cloaking") else "no cloaking"
+        return f"{plural(len(cl['visits']), 'visit')} ({names}): {res}."
+
+    def page_cloaking(self):
+        s, c, cl = self.s, self.c, self.cloak
+        self.new_page()
+        detected = bool(cl.get("cloaking"))
+        visits = list(cl.get("visits") or [])
+        v3 = cl.get("visit3_status") or "not run"
+
+        # verdict band (ink)
+        hh = 132
+        y0 = self.y
+        yy = self.card(M, y0, CW, hh, "cloaking check", "ink")
+        self.pill(M + CW - P, y0 - P - 10, "cloaking detected" if detected else ("no cloaking" if visits
+                  else "not checked"), fill=ORANGE if detected else SAGE, right=True)
+        title = "Cloaking detected." if detected else ("No cloaking." if visits else "Not checked.")
+        self.text(M + P, yy - 34, title, 38, SERIF_I, BONE)
+        self.text(M + P, yy - 52, self.fit(f"{plural(len(visits), 'visit')} compared · visit 3: {v3}",
+                                           CW - 2 * P, 7.4, MONO), 7.4, MONO, ORANGE if detected else BORDER)
+        self.para(_t("Scam sites often show a clean page to bots and the real scam page only to shoppers who arrive "
+                     "from an Instagram or Facebook ad. FORGE visited this site three different ways and compared "
+                     "what each visit saw. If the visits see different pages, that difference is itself evidence."),
+                  M + P, yy - 60, CW - 2 * P, style(8.2, 11, BORDER, SANS))
+        self.y = y0 - hh - G
+
+        # three visit cards with arch screenshots
+        slots = [("bot", INK, BONE), ("Instagram-ad shopper", ORANGE, INK), (None, SAGE, INK)]
+        by_label = {v["label"]: v for v in visits}
+        net = next((v for v in visits if v["label"] not in ("bot", "Instagram-ad shopper")), None)
+        from prarthana.cloaking import VISIT_PROFILES, network_label
+        bw = (CW - 2 * G) / 3
+        comps_n = max(1, len(cl.get("comparisons") or []))
+        comp_h = 36 + 14 + comps_n * 21 + 4
+        diff_need = 36 + 40 + sum(self.para_h(_t(d, True), CW - 2 * P - 12, style(9.4, 12.6, INK, SANS)) + 5
+                                  for d in (cl.get("differences") or [])) + \
+            sum(self.para_h(_t("Note: " + n, True), CW - 2 * P - 12, style(7.8, 10.4, MUTED, SANS)) + 4
+                for n in (cl.get("notes") or [])) + (30 if not cl.get("differences") else 0)
+        hh = max(300, min(420, (self.y - BOTTOM) - comp_h - diff_need - 2 * G))
+        ih = hh - 122
+        y0 = self.y
+        for i, (label, fill, fg) in enumerate(slots):
+            v = by_label.get(label) if label else net
+            name = label or (net["label"] if net else network_label())
+            x = M + i * (bw + G)
+            yy = self.card(x, y0, bw, hh, f"visit {i + 1}")
+            self.pill(x + bw - P, y0 - P - 10, name, fill=fill, color=fg, size=6.2, h=13, right=True)
+            path = (v or {}).get("screenshot_path")
+            self.arch_image(path if path and Path(path).exists() else None, x + P, yy - ih - 2, bw - 2 * P, ih,
+                            top=True, outline=ORANGE if (detected and label == "Instagram-ad shopper") else BORDER)
+            ly = yy - ih - 15
+            if v and not v.get("error"):
+                self.text(x + P, ly, self.fit(v.get("final_url") or "", bw - 2 * P, 6.9, MONO_M), 6.9, MONO_M, INK)
+                self.text(x + P, ly - 11, f"{v.get('text_length', 0)} chars of visible text", 6.6, MONO, MUTED)
+                prof = v.get("profile") or VISIT_PROFILES.get(name, "")
+            elif v:
+                self.text(x + P, ly, "visit failed", 6.9, MONO_M, ORANGE)
+                self.text(x + P, ly - 11, self.fit(v.get("error", ""), bw - 2 * P, 6.6, MONO), 6.6, MONO, MUTED)
+                prof = v.get("profile") or ""
+            else:
+                self.text(x + P, ly, "skipped" if label is None else "not run", 6.9, MONO_M, MUTED)
+                prof = v3.replace("skipped: ", "") if label is None else "Cloaking check was not run."
+            self.para(_t(prof, True), x + P, ly - 17, bw - 2 * P, style(6.9, 9, MUTED, SANS))
+        self.y = y0 - hh - G
+
+        # pairwise comparisons
+        comps = cl.get("comparisons") or []
+        hh = 36 + 14 + max(1, len(comps)) * 21 + 4
+        y0 = self.y
+        yy = self.card(M, y0, CW, hh, "comparisons")
+        self.text(M + CW - P, y0 - P - 6, "different = text < 60% same, other domain, or unexplained visual change",
+                  6.6, MONO, MUTED, right=True)
+        cols = [(0, "pair"), (210, "screenshot Δ"), (290, "text same"), (360, "final domains"), (470, "result")]
+        for dx, lab in cols:
+            self.text(M + P + dx, yy - 4, lab, 6.6, MONO, MUTED)
+        yy -= 12
+        if not comps:
+            self.text(M + P, yy - 15, "No comparison possible (fewer than two visits loaded).", 8.5, SANS, MUTED)
+        for i, cmp_ in enumerate(comps):
+            ry = yy - (i + 1) * 21
+            self.rule(M + P, M + CW - P, ry + 21)
+            self.text(M + P, ry + 7, self.fit(cmp_["pair"], 200, 8.4, SANS_M), 8.4, SANS_M, INK)
+            d = cmp_.get("phash_distance")
+            self.text(M + P + 210, ry + 7, "—" if d is None else f"{d} {'>' if d > 18 else '≤'} 18", 7.8, MONO,
+                      ORANGE if d is not None and d > 18 else INK)
+            ts = cmp_.get("text_similarity")
+            self.text(M + P + 290, ry + 7, "—" if ts is None else f"{round(ts * 100)}%", 7.8, MONO,
+                      ORANGE if ts is not None and ts < 0.6 else INK)
+            doms = [x for x in (cmp_.get("domains") or []) if x]
+            dtxt = doms[0] if len(set(doms)) <= 1 and doms else " → ".join(doms)
+            self.text(M + P + 360, ry + 7, self.fit(dtxt or "—", 104, 7.4, MONO), 7.4, MONO, INK)
+            if cmp_.get("different"):
+                self.pill(M + P + 470, ry + 3.5, "different", size=6.6, h=13)
+            elif ts is None:
+                self.pill(M + P + 470, ry + 3.5, "not compared", fill=BORDER, size=6.6, h=13)
+            else:
+                self.pill(M + P + 470, ry + 3.5, "same page", fill=SAGE, size=6.6, h=13)
+        self.y = y0 - hh - G
+
+        # differences — stretches to the footer
+        y0 = self.y
+        yy = self.card(M, y0, CW, y0 - BOTTOM, "differences found")
+        diffs = list(cl.get("differences") or [])
+        notes = list(cl.get("notes") or [])
+        st_ = style(9.4, 12.6, INK, SANS)
+        ny = yy - 2
+        if not diffs:
+            ny -= self.para(_t("No differences that point to cloaking: every visit saw the same page." if visits
+                               else "The cloaking check was not run for this suspect."), M + P, ny, CW - 2 * P,
+                            style(13, 17, INK, SERIF)) + 6
+        for d in diffs:
+            c.setFillColor(ORANGE)
+            c.circle(M + P + 3, ny - 6.5, 2.6, stroke=0, fill=1)
+            ny -= self.para(_t(d, True), M + P + 12, ny, CW - 2 * P - 12, st_) + 5
+        for n in notes:
+            if ny < BOTTOM + 40:
+                break
+            c.setFillColor(BORDER)
+            c.circle(M + P + 3, ny - 5.5, 2.2, stroke=0, fill=1)
+            ny -= self.para(_t("Note: " + n, True), M + P + 12, ny, CW - 2 * P - 12, style(7.8, 10.4, MUTED, SANS)) + 4
+        self.rule(M + P, M + CW - P, BOTTOM + 26)
+        self.text(M + P, BOTTOM + 12, self.fit(f"visit 3: {v3}", CW - 2 * P - 90, 7, MONO), 7, MONO, MUTED)
+        self.text(M + CW - P, BOTTOM + 12, cl.get("checked_at") or "", 7, MONO_M, INK, right=True)
+        self.finish_page()
+
     def page_action(self):
         s, c, ct = self.s, self.c, self.contacts
         self.new_page()
@@ -709,6 +867,8 @@ class Doc:
                              f"{plural(len(s.prices_found or {}), 'price')}, "
                              f"{plural(len(s.contact_hashes or []), 'contact')} (hashed).",
              "done" if s.screenshot_path or lvl >= 1 else "todo", shot_t or "—"),
+            ("Cloaking check", self.cloak_summary(), "done" if self.cloak.get("visits") else "todo",
+             self.cloak.get("checked_at") or "not run"),
             ("Scored", f"{s.score}/100 · {LABEL_TEXT.get(s.label, s.label)} · "
                        f"{plural(len([r for r in s.reasons if r.startswith('+')]), 'signal')} triggered.",
              "done", gen_t),
@@ -726,7 +886,7 @@ class Doc:
              else "Will be sent only after the owner confirms.", "done" if s.status == "reported" else "todo",
              "sent" if s.status == "reported" else "pending"),
         ]
-        sh = 36
+        sh = 33
         hh = 34 + len(steps) * sh
         y0 = self.y
         yy = self.card(M, y0, CW, hh, "timeline")
@@ -814,6 +974,7 @@ def _render(fileobj, s, dna, total, assets, contacts) -> int:
     d = Doc(c, s, dna, total, contacts)
     d.page_case_file()
     d.page_evidence(assets)
+    d.page_cloaking()
     d.page_action()
     pages = c.getPageNumber() - 1
     c.save()
@@ -832,7 +993,7 @@ def build_evidence_pdf(s: Suspect, dna: BrandDNA) -> str:
         contacts = abuse_contacts(s)
     except Exception:
         contacts = {}
-    total = _render(io.BytesIO(), s, dna, 3, assets, contacts)  # pass 1: count pages
+    total = _render(io.BytesIO(), s, dna, 4, assets, contacts)  # pass 1: count pages
     _render(str(path), s, dna, total, assets, contacts)
     s.pdf_path = str(path)
     return str(path)

@@ -12,6 +12,7 @@ PTS_LOGO = 20
 PTS_PRICE = 15
 PTS_CONTACT = 15
 PTS_YOUNG = 10
+PTS_CLOAK = 10
 PRICE_DROP = 0.40      # at least 40% below the brand price
 YOUNG_DAYS = 30
 LIKELY_FAKE = 75
@@ -74,6 +75,11 @@ def score_suspect(s: Suspect, dna: BrandDNA) -> Suspect:
     if s.domain_age_days is not None and s.domain_age_days < YOUNG_DAYS:
         score += PTS_YOUNG
         reasons.append(f"+{PTS_YOUNG}: domain registered only {plural(s.domain_age_days, 'day')} ago.")
+    if getattr(s, "cloaking", False):
+        score += PTS_CLOAK
+        diffs = (getattr(s, "cloaking_details", None) or {}).get("differences") or []
+        reasons.append(f"+{PTS_CLOAK}: shows a different page to an Instagram-ad visitor than to a normal visitor "
+                       f"(cloaking)" + (f": {diffs[0].rstrip('.')}." if diffs else "."))
     if s.scam_phrases:
         reasons.append("Note (no points): scam-style phrases found: " + ", ".join(map(str, s.scam_phrases)) + ".")
 

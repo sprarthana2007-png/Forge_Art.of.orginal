@@ -64,6 +64,12 @@ def test_clone_flagged_real_store_ignored(tmp_path):
     assert by_url[clone]["label"] == "likely_fake"
     assert by_url[clone]["verdict"]
     assert by_url[store]["label"] == "ignored"
+    # cloaking check ran on the clone (static page, same content for everyone) -> no cloaking, no points
+    cd = by_url[clone]["cloaking_details"]
+    assert by_url[clone]["cloaking"] is False and [v["label"] for v in cd["visits"]] == ["bot", "Instagram-ad shopper"]
+    assert cd["visit3_status"].startswith("skipped:")
+    assert not any("Instagram-ad visitor" in r for r in by_url[clone]["reasons"])
+    assert by_url[store]["cloaking_details"] == {}   # the brand's own store is never cloaking-checked
     # evidence + alert written; no raw contacts anywhere in the saved state
     assert Path(by_url[clone]["pdf_path"]).exists()
     # tamper-evident: signed PDF, fingerprint stored in state.json and written next to the PDF

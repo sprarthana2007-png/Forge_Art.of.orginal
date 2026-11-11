@@ -35,7 +35,7 @@ def _safe_name(s: str) -> str:
 
 
 def make_evidence_pdf(s: Suspect, dna: BrandDNA, state_log=None) -> str:
-    """3-page evidence report (layout: prarthana/evidence_pdf.py), then made tamper-evident
+    """4-page evidence report (layout: prarthana/evidence_pdf.py), then made tamper-evident
     (prarthana/signing.py): print-only permissions + pyHanko certification signature. The SHA-256 of the
     signed file is stored in s.evidence_sha256. Returns the PDF path."""
     from prarthana.evidence_pdf import SIG_BOX, build_evidence_pdf
@@ -131,7 +131,7 @@ def _alert_html(flagged: list, dna: BrandDNA) -> str:
       <div style="font:10px Helvetica,Arial,sans-serif;color:#9FB0C8">/ 100</div></td>
     <td style="padding-left:14px;font:12px Helvetica,Arial,sans-serif;color:#1B2433;line-height:19px">
       <b>{n_img}</b> brand images copied &nbsp;·&nbsp; <b>{len(s.contacts_masked or [])}</b> unofficial contacts
-      &nbsp;·&nbsp; domain age <b>{age}</b><br>
+      &nbsp;·&nbsp; domain age <b>{age}</b>{' &nbsp;·&nbsp; <b style="color:#E5484D">cloaking detected</b>' if getattr(s, 'cloaking', False) else ''}<br>
       <span style="color:#5B6675">Case {case_id(s)} &nbsp;·&nbsp; signed evidence PDF attached</span></td>
    </tr></table>
    <div style="margin-top:12px;background:#FFF4F1;border-left:3px solid #FF6B57;padding:10px 12px;

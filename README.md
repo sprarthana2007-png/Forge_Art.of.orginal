@@ -55,9 +55,11 @@ on two local ports and runs the whole flow: the clone must score ≥ 75 and the 
                         prarthana/planner.py  (LangGraph StateGraph over ForgeState)
                                        |
   [brand_dna] --> [hunt] --> [prioritise] --> [investigate] --> [score] --> [verdict] --> [decide]
-   build_brand_dna   |        Gemini rank /     Playwright,       rules +       one batched      |
-   (surabhi/ or      |        heuristic         images, prices,   campaigns     Gemini call /    |
-    stub)            |                          contacts, RDAP    (union-find)  template         |
+   build_brand_dna   |        Gemini rank /     cloaking check    rules +       one batched      |
+                     |        heuristic         (3 visits) +      campaigns     Gemini call /    |
+   (surabhi/ or      |                          Playwright:       (union-find)  template         |
+    stub)            |                          images, prices,                                  |
+                     |                          contacts, RDAP                                   |
                      +-- name_net (surabhi/ or stub)                                              |
                      +-- urlscan nets: hash / hotlink / title                                     |
                                                                                                   |
@@ -69,8 +71,16 @@ on two local ports and runs the whole flow: the clone must score ≥ 75 and the 
   Dashboard (surabhi/) --> confirm(suspect, yes) --> send_abuse_report(suspect) --> status=reported
 ```
 Score: product photo copy/look-alike +30 · logo/favicon +20 · price ≥ 40% below +15 · unofficial contacts +15 ·
-domain < 30 days old +10. Labels: ≥ 75 `likely_fake`, 50–74 `suspicious`, < 50 `ignored`. Allow-listed domains
+domain < 30 days old +10 · cloaking (different page for an Instagram-ad shopper than for a bot) +10. Labels: ≥ 75 `likely_fake`, 50–74 `suspicious`, < 50 `ignored`. Allow-listed domains
 (and the brand's own) are always ignored.
+
+## Cloaking check (#13)
+Scam sites often show a clean page to bots and the real scam page only to shoppers from an Instagram / Facebook ad.
+FORGE visits every suspect three ways (desktop **bot**, **Instagram-ad shopper** on an emulated Android phone with
+an Instagram referrer and `fbclid`, and a **different network location** via urlscan.io) and compares screenshots,
+visible text and final domains. If the visits see different pages, that is evidence (+10) and FORGE collects the
+rest of its evidence as the shopper. See NOTES.md for details and limits (urlscan has no India location; sites
+that cloak only by Indian mobile IP need a mobile / residential network).
 
 ## Repo layout
 ```
@@ -83,6 +93,6 @@ tests/          unit + end-to-end tests, fixtures
 
 ## Team Shared 21
 - **Prarthana S** (@sprarthana2007-png): #1 Planner, #3 Investigator, #5 Alert + actions, #7 urlscan nets,
-  #8 Scorer, #11 Gemini verdict.
+  #8 Scorer, #11 Gemini verdict, #13 Cloaking check.
 - **Surabhi Muddan** (@surabhimuddan): #2 Brand DNA, #4 Dashboard, #6 Name net, #9 Submission (video, deck),
   #10 Scam-phrase checklist, #12 Demo sites + owner verification.

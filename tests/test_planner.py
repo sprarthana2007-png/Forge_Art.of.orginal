@@ -34,3 +34,24 @@ def test_heuristic_rank():
 
 def test_graph_compiles():
     assert build_graph() is not None
+
+
+def test_prioritise_puts_hash_and_hotlink_first_for_cloaking(monkeypatch):
+    import prarthana.planner as planner
+    monkeypatch.setattr(planner, "gemini_json", lambda *a, **k: None)
+    sus = [Suspect(url="t", domain="t.example", found_by="urlscan_title"),
+           Suspect(url="n", domain="n.example", found_by="name_net"),
+           Suspect(url="h", domain="h.example", found_by="urlscan_hotlink"),
+           Suspect(url="x", domain="x.example", found_by="urlscan_hash")]
+    out = planner.node_prioritise(st(suspects=sus, round_new=[s.url for s in sus]))
+    q = out["cloak_queue"]
+    assert set(q[:2]) == {"h", "x"} and set(q[2:]) == {"t", "n"}
+
+
+def test_cloak_budget_skips_when_used_up(monkeypatch):
+    import prarthana.planner as planner
+    monkeypatch.setenv("FORGE_CLOAK_BUDGET", "0")
+    monkeypatch.setattr(planner, "investigate", lambda s, dna, log, cloak=None: setattr(s, "cloaking_details", cloak))
+    s = Suspect(url="https://a.example/", domain="a.example", found_by="urlscan_hash")
+    planner.node_investigate(st(suspects=[s], round_new=[s.url], cloak_queue=[s.url]))
+    assert "time budget" in s.cloaking_details["visit3_status"]

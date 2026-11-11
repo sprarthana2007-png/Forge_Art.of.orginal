@@ -24,6 +24,9 @@ def template_verdict(s: Suspect, dna: BrandDNA) -> str:
     because = "; ".join(pts[:3]) if pts else "no copied photos, logo, prices or contacts were found"
     first = f"This site ({s.domain}) scored {s.score}/100 because it {because[0].lower() + because[1:]}."
     second = f"FORGE rates it as {LABEL_TEXT.get(s.label, s.label)} {brand}."
+    if getattr(s, "cloaking", False):
+        second = (f"FORGE rates it as {LABEL_TEXT.get(s.label, s.label)} {brand}, and it shows a different page "
+                  f"to shoppers arriving from an Instagram ad than to normal visitors (cloaking).")
     if s.label == "likely_fake":
         third = "Please review the evidence and confirm in your FORGE dashboard so an abuse report can be sent."
     elif s.label == "suspicious":
@@ -38,13 +41,17 @@ def gemini_verdict(suspects: list, brand_dna: BrandDNA, state_log=None) -> dict:
     if not suspects:
         return {}
     items = [{"url": s.url, "domain": s.domain, "score": s.score, "label": s.label, "reasons": s.reasons,
-              "domain_age_days": s.domain_age_days} for s in suspects]
+              "domain_age_days": s.domain_age_days, "cloaking": bool(getattr(s, "cloaking", False)),
+              "cloaking_differences": ((getattr(s, "cloaking_details", None) or {}).get("differences") or [])[:3]}
+             for s in suspects]
     prompt = (
         "You help a small Indian online brand spot fake copies of its store. "
         f"Brand: {brand_dna.brand_name!r}, real store: {brand_dna.store_url}.\n"
         "For EACH suspect below write exactly 3 short plain-English sentences for the shop owner: "
         "(1) the score and what it means, (2) the strongest evidence, (3) what they should do next. "
-        "Use only the facts given; do not invent anything. Do not include any phone numbers or IDs.\n"
+        "Use only the facts given; do not invent anything. Do not include any phone numbers or IDs. "
+        "If cloaking is true, say clearly that the site shows a different page to shoppers arriving from an "
+        "Instagram ad than to normal visitors (it hides the scam from checks).\n"
         'Reply as JSON: {"verdicts": [{"url": "...", "verdict": "..."}]}\n\n'
         "Suspects:\n" + json.dumps(items, ensure_ascii=False, indent=1))
     data = gemini_json(prompt, state_log)

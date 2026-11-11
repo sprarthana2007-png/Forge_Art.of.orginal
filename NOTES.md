@@ -1,7 +1,7 @@
 # NOTES — Prarthana's topics (build log, 11 Nov)
 
 ## What works (verified)
-- **#3 Investigator** (`prarthana/investigator.py`): headless Chromium (20 s timeout), full-page screenshot,
+- **#3 Investigator** (`prarthana/investigator.py`): runs the #13 cloaking check first; headless Chromium (20 s timeout), full-page screenshot,
   captures every image response + `<img>` sources + favicon, exact (SHA-256) and look-alike (pHash ≤ 8) matches
   against Brand DNA, logo/favicon match, ₹/Rs/INR prices mapped to Brand-DNA product names, Indian phones /
   UPI IDs / e-mails → `hash_contact` + `mask_contact` (raw values only in memory), RDAP domain age, IP.
@@ -18,7 +18,7 @@
   delivered via Resend to `GMAIL_ADDRESS` with the real abuse contact shown in the subject.
 - **#1 Planner** (`prarthana/planner.py`, `main.py`): LangGraph StateGraph, conditional edges driven by state,
   `cache/state.json` persistence, `--watch` (APScheduler, every 6 h). Live-tested on a real public store.
-- Tests: `python -m pytest -q tests` → 25 passed (unit: scorer math, masking/hashing, price/contact
+- Tests: `python -m pytest -q tests` → 32 passed (unit: scorer math, masking/hashing, price/contact
   extraction, planner decisions; e2e: local store + clone; abuse-report confirmation gate).
 
 ## Gemini model
@@ -75,7 +75,8 @@
 - If the Playwright browser for the pinned version is not installed, `launch_chromium` falls back to
   `CHROMIUM_PATH` or `/opt/pw-browsers/chromium`.
 - PDFs write "Rs." instead of ₹ (ReportLab's built-in Helvetica has no rupee glyph).
-- Evidence PDF "bento" theme (`prarthana/evidence_pdf.py`, called by `alert.make_evidence_pdf`): same 3 pages
+- Evidence PDF "bento" theme (`prarthana/evidence_pdf.py`, called by `alert.make_evidence_pdf`): 4 pages (since #13: case file, evidence,
+  cloaking check, action; before that 3)
   and data as before (case file / evidence / action), restyled as rounded cards numbered across the report
   ("01 / VERDICT" … "16 / NEXT STEPS"), on a stone background with a warm film-grain tile
   (`prarthana/assets/grain.png`, generated once with numpy if missing). Palette is limited to stone, bone, ink,
@@ -92,6 +93,57 @@
 - Wording: singular/plural is handled by `common.plural()` ("1 look-alike", "1 exact copy", "1 day"),
   including the scorer's reasons.
 - The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
+
+## #13 Cloaking check (`prarthana/cloaking.py`)
+- **What it catches:** scam stores that show a clean page (e.g. "under maintenance") to bots and reviewers, and
+  the real scam page only to shoppers who arrive from an Instagram / Facebook ad. FORGE visits each suspect
+  three ways and compares them:
+  1. **bot**: desktop headless Chromium, default user agent, no referrer;
+  2. **Instagram-ad shopper**: Pixel 7 emulation (touch), Instagram in-app browser user agent, Referer
+     `https://l.instagram.com/`, URL + `?fbclid=<random>&utm_source=ig&utm_medium=paid`;
+  3. **India network**: urlscan.io Scan API (`visibility: unlisted`, `country: in`), polled up to 90 s,
+     then its screenshot and page text (from urlscan's DOM copy).
+- Each pair is compared on screenshot pHash distance (> 18 = visually different), visible-text similarity
+  (difflib ratio < 0.6 = different) and the final domain after redirects. Cloaking = different text, a
+  redirect to another domain, or a visual difference that the text does not explain.
+  **Decision:** a visual difference alone is *not* counted when the text is ≥ 85% the same. Phone vs desktop
+  layouts of the *same* page differ by 22–36 in our tests (identical text), so pixels alone would flag every
+  responsive site. Those cases are listed as notes in the PDF.
+- **Result:** `suspect.cloaking` (bool) and `suspect.cloaking_details` (visits with label / final URL /
+  screenshot / text length, comparisons, plain-English differences, `visit3_status`). Cached in
+  `cache/cloaking/`. Never raises; a failed visit is recorded and the others are still compared.
+- **Scoring:** cloaking = +10 ("shows a different page to an Instagram-ad visitor than to a normal visitor").
+  Thresholds unchanged (75 / 50). Max score is now exactly 100 (30+20+15+15+10+10). Cloaking alone (10) can
+  never flag a site.
+- **Evidence follows the shopper:** when cloaking is detected, the Investigator collects its evidence
+  (images, prices, contacts, screenshot) as the Instagram-ad shopper. Otherwise it would only see the
+  maintenance page and miss everything. In the test, the cloaked clone scores 90 (80 + 10); without this switch it
+  would have scored ~0.
+- **Visit 3 status: skipped.** urlscan has **no India scanning location for any plan**: `country: "in"` is
+  rejected ("not part of the available scanning locations"), and `/api/v1/availableCountries/` lists de, us,
+  jp, fr, gb, nl, ca, it, es, se, fi, dk, no, is, au, nz, pl, sg, pt, at, ch, il, tr, tw, be. So visit 3 is skipped
+  with that reason and the check runs on visits 1 + 2. Set `FORGE_CLOAK_COUNTRY=sg` (Singapore) to use the nearest
+  available location instead; that path was tested live (scan → poll → screenshot → text in ~25 s). Visit 3
+  is also skipped for local addresses, when `URLSCAN_API_KEY` is missing, or when the time budget is low.
+- **Planner:** `prioritise` builds `cloak_queue` with owner reports, `urlscan_hash` and `urlscan_hotlink`
+  suspects first. `investigate` runs cloaking checks in that order within `FORGE_CLOAK_BUDGET` seconds
+  (default 300). Visit 3 runs only while ≥ 100 s of budget is left, and checks after the budget is used up are
+  skipped (recorded in the PDF).
+- **Evidence PDF is now 4 pages:** a dedicated "cloaking check" page after the evidence page (verdict band, the
+  three visits as arch screenshots labelled bot / Instagram-ad shopper / India network, a comparison table, the
+  differences as bullets, visit 3 status). Page 2 was already full, so a card there would have pushed the
+  contacts table onto a near-empty extra page. Also: a "Cloaking" row in the page-1 signals, a cloaking segment
+  in the score bar, and a "Cloaking check" step in the timeline. Gemini gets `cloaking` + the differences as
+  input and mentions cloaking in the summary when found.
+- **Honest limits:**
+  - Sites that cloak **only by Indian mobile IP address** (show the scam only to visitors on Jio / Airtel / Vi
+    mobile networks) are not caught fully: FORGE's visits come from a datacenter, and urlscan has no Indian
+    location. Catching those needs a mobile / residential Indian network (e.g. a phone hotspot or a residential
+    proxy) for visit 2.
+  - Cloaking by other signals (cookies from a real ad click, Facebook's own click-validation, time of day,
+    fingerprinting that spots headless Chromium) may still hide the scam from all three visits.
+  - Legit sites with anti-bot walls (e.g. a challenge page for headless browsers) can look like cloaking.
+    That is why cloaking is only +10 and is shown with its evidence for a human to judge.
 
 ## Tamper-evident evidence PDFs (`prarthana/signing.py`)
 - Every evidence PDF is made tamper-evident right after it is generated (`alert.make_evidence_pdf`):
