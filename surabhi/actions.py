@@ -10,13 +10,12 @@
 
 Every change is written back to the state file the dashboard reads (cache/state.json for engine results).
 """
-import json
 import os
 import re
 from pathlib import Path
 
 import storage
-from schemas import BrandDNA, ForgeState, state_from_dict, state_to_dict
+from schemas import BrandDNA, ForgeState, read_json_file, state_from_dict, state_to_dict, write_json_file
 
 OUTPUT = Path(os.getenv('FORGE_OUTPUT_DIR') or storage.REPO / 'output').resolve()
 
@@ -35,13 +34,11 @@ def demo_mode():
 
 
 def _load():
-    return state_from_dict(storage.validate_state(json.loads(storage.STATE_FILE.read_text(encoding='utf-8'))))
+    return state_from_dict(storage.validate_state(read_json_file(storage.STATE_FILE)))
 
 
 def _save(state):
-    tmp = storage.STATE_FILE.with_suffix('.tmp')
-    tmp.write_text(json.dumps(state_to_dict(state), indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
-    tmp.replace(storage.STATE_FILE)  # atomic: the engine never reads a half-written file
+    write_json_file(storage.STATE_FILE, state_to_dict(state))  # temp file + swap: the engine never reads a half-written file
 
 
 def _find(state, domain):

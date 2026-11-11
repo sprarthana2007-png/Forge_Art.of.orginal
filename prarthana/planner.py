@@ -10,7 +10,7 @@ import json
 
 from langgraph.graph import END, StateGraph
 
-from schemas import ForgeState, Suspect, state_from_dict, state_to_dict
+from schemas import ForgeState, Suspect, read_json_file, state_from_dict, state_to_dict, write_json_file
 from prarthana.common import CACHE, domain_of, log, plural
 from prarthana.teammate import get_build_brand_dna, get_name_net
 from prarthana.urlscan_nets import urlscan_nets
@@ -32,7 +32,7 @@ FOUND_BY_RANK = {"manual": 0, "urlscan_hash": 1, "urlscan_hotlink": 2, "urlscan_
 # ------------------------------------------------------------------ persistence
 def load_state(store_url: str) -> ForgeState:
     try:
-        st = state_from_dict(json.loads(STATE_FILE.read_text()))
+        st = state_from_dict(read_json_file(STATE_FILE))
         if st.brand_dna and st.brand_dna.store_url == store_url:
             return st
     except Exception:
@@ -41,8 +41,7 @@ def load_state(store_url: str) -> ForgeState:
 
 
 def save_state(st: ForgeState) -> None:
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(state_to_dict(st), indent=1, ensure_ascii=False))
+    write_json_file(STATE_FILE, state_to_dict(st))  # temp file + swap: the dashboard never sees an empty file
 
 
 def _new(st: ForgeState) -> list:

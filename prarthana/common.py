@@ -49,14 +49,14 @@ def cache_get(sub: str, key: str):
     p = cache_path(sub, key)
     if p.exists():
         try:
-            return json.loads(p.read_text())
+            return json.loads(p.read_text(encoding="utf-8"))
         except Exception:
             return None
     return None
 
 
 def cache_set(sub: str, key: str, value) -> None:
-    cache_path(sub, key).write_text(json.dumps(value, indent=1, default=list))
+    cache_path(sub, key).write_text(json.dumps(value, indent=1, default=list), encoding="utf-8")
 
 
 def log(state_log, msg: str) -> None:

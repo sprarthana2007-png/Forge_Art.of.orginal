@@ -52,7 +52,7 @@ def make_safe_browsing_pack(s: Suspect, dna: BrandDNA | None = None) -> str:
             import json
             from prarthana.common import CACHE
             from schemas import state_from_dict
-            dna = state_from_dict(json.loads((CACHE / "state.json").read_text())).brand_dna
+            dna = state_from_dict(json.loads((CACHE / "state.json").read_text(encoding="utf-8"))).brand_dna
         except Exception:
             dna = None
     brand = (dna.brand_name if dna and dna.brand_name else "") or "our brand"

@@ -83,7 +83,7 @@ def run(out_md: Path, out_json: Path, quiet: bool = False) -> dict:
     from prarthana.scorer import score_suspect
     from prarthana.teammate import get_build_brand_dna
 
-    labels = json.loads((EVAL / "labels.json").read_text())
+    labels = json.loads((EVAL / "labels.json").read_text(encoding="utf-8"))
     port = _free_port()
     srv = _start_server(port)
     url = lambda site: f"http://{site}.localhost:{port}/"
@@ -119,7 +119,7 @@ def run(out_md: Path, out_json: Path, quiet: bool = False) -> dict:
            "n_fake": sum(r["label"] == "fake" for r in rows), "n_legit": sum(r["label"] == "legit" for r in rows),
            "brand_dna_from": where, "flagged_50": m50, "likely_fake_75": m75, "pages": rows}
     out_json.parent.mkdir(parents=True, exist_ok=True)
-    out_json.write_text(json.dumps(res, indent=1))
+    out_json.write_text(json.dumps(res, indent=1), encoding="utf-8")
     out_md.write_text(report_md(res), encoding="utf-8")
     say(summary(res))
     return res

@@ -124,7 +124,7 @@ def sign_pdf(path, box: tuple | None = None, state_log=None) -> str:
 
     # 3. fingerprint
     sha = hashlib.sha256(out.getvalue()).hexdigest()
-    sidecar(path).write_text(sha + "  " + path.name + "\n")
+    sidecar(path).write_text(sha + "  " + path.name + "\n", encoding="utf-8")
     log(state_log, f"evidence: signed {path.name} sha256={sha}")
     return sha
 
@@ -133,9 +133,9 @@ def expected_sha(path) -> str | None:
     """Fingerprint recorded at signing time: <pdf>.sha256 sidecar, else cache/state.json."""
     sc = sidecar(path)
     if sc.exists():
-        return sc.read_text().split()[0]
+        return sc.read_text(encoding="utf-8").split()[0]
     try:
-        st = json.loads((CACHE / "state.json").read_text())
+        st = json.loads((CACHE / "state.json").read_text(encoding="utf-8"))
         for s in st.get("suspects", []):
             if s.get("pdf_path") and Path(s["pdf_path"]).resolve() == Path(path).resolve():
                 return s.get("evidence_sha256") or None

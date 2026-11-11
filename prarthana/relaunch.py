@@ -46,13 +46,13 @@ def remember(s: Suspect) -> None:
     try:
         p = _file()
         p.parent.mkdir(parents=True, exist_ok=True)
-        data = json.loads(p.read_text()) if p.exists() else []
+        data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
         d = asdict(s)
         rec = {k: d.get(k) for k in KEEP}
         rec["status"] = s.status
         rec["confirmed_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
         data = [x for x in data if x.get("url") != s.url] + [rec]
-        p.write_text(json.dumps(data, indent=1))
+        p.write_text(json.dumps(data, indent=1), encoding="utf-8")
     except Exception:
         pass
 
@@ -65,7 +65,7 @@ def load_history(state_suspects: list | None = None) -> list:
         sources.append([asdict(s) if isinstance(s, Suspect) else s for s in state_suspects])
     for p in (CACHE / "state.json", _file()):
         try:
-            d = json.loads(p.read_text())
+            d = json.loads(p.read_text(encoding="utf-8"))
             sources.append(d.get("suspects", []) if isinstance(d, dict) else d)
         except Exception:
             pass

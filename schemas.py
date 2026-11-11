@@ -5,6 +5,8 @@ Both teammates import from here. Only ADD fields; never rename or remove.
 from __future__ import annotations
 
 import base64
+import json
+import time
 import functools
 import hashlib
 import os
@@ -104,6 +106,38 @@ def mask_contact(s: str) -> str:
     if len(s) <= 4:
         return "X" * len(s)
     return s[:2] + "X" * (len(s) - 4) + s[-2:]
+
+
+# ---------------------------------------------------------------- JSON files shared by engine + dashboard (Windows-safe)
+def read_json_file(path, retries: int = 20):
+    """json.loads of a UTF-8 file. Retries briefly when the file is empty or half-written (another process is
+    saving it) or locked (Windows), so a reader never fails just because it looked at the wrong moment."""
+    for attempt in range(retries):
+        try:
+            return json.loads(open(path, encoding="utf-8-sig").read())
+        except (ValueError, PermissionError):
+            if attempt == retries - 1:
+                raise
+            time.sleep(0.1)
+
+
+def write_json_file(path, data, indent: int = 1) -> None:
+    """Write JSON as UTF-8 to a temp file, then swap it in, so readers see the old or the new file, never an empty
+    one. On Windows the swap fails while another process has the file open, so it is retried for a few seconds."""
+    from pathlib import Path
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(data, indent=indent, ensure_ascii=False, default=list) + "\n", encoding="utf-8")
+    for attempt in range(50):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == 49:
+                tmp.unlink(missing_ok=True)
+                raise
+            time.sleep(0.1)
 
 
 # ---------------------------------------------------------------- dataclasses

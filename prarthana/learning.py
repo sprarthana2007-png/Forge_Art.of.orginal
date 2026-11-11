@@ -32,7 +32,7 @@ def _file():
 
 def load_feedback() -> list:
     try:
-        return json.loads(_file().read_text())
+        return json.loads(_file().read_text(encoding="utf-8"))
     except Exception:
         return []
 
@@ -63,7 +63,7 @@ def record(s: Suspect, yes: bool) -> None:
                      "at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")})
         p = _file()
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data, indent=1))
+        p.write_text(json.dumps(data, indent=1), encoding="utf-8")
     except Exception:
         pass
 

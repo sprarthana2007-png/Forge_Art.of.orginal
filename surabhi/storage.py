@@ -17,7 +17,7 @@ REPO = ROOT.parent
 if str(REPO) not in sys.path:  # the shared schemas.py and the FORGE engine (prarthana/) live at the repo root
     sys.path.append(str(REPO))
 
-from schemas import Suspect, state_from_dict  # noqa: E402
+from schemas import Suspect, read_json_file, state_from_dict, write_json_file  # noqa: E402
 
 DEMO_STATE = ROOT / 'forge_state.json'
 ENGINE_STATE = Path(os.getenv('FORGE_CACHE_DIR') or REPO / 'cache').resolve() / 'state.json'
@@ -101,7 +101,7 @@ def validate_state(data):
 
 
 def read_state():
-    return state_from_dict(validate_state(json.loads(STATE_FILE.read_text(encoding='utf-8'))))
+    return state_from_dict(validate_state(read_json_file(STATE_FILE)))
 
 
 def load_brand():
@@ -189,13 +189,11 @@ def pipeline_status(decision, report_status):
 
 def _write_status(domain, status):
     """Set one suspect's status in the state file, keeping every other field as it is."""
-    data = json.loads(STATE_FILE.read_text(encoding='utf-8'))
+    data = read_json_file(STATE_FILE)
     for suspect in data.get('suspects', []):
         if (suspect.get('domain') or (urlparse(suspect.get('url', '')).hostname or '').removeprefix('www.')) == domain:
             suspect['status'] = status
-    tmp = STATE_FILE.with_suffix('.tmp')
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
-    tmp.replace(STATE_FILE)  # atomic: other modules never see a half-written file
+    write_json_file(STATE_FILE, data, indent=2)  # temp file + swap: other modules never see a half-written file
 
 
 def save_review(case_id, *, decision=None, report_status=None):
