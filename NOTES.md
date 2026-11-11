@@ -42,7 +42,8 @@
   sender, Resend only delivers to the account owner's own address, which is why everything goes to `GMAIL_ADDRESS`.
 
 ## What failed / limitations
-- **git push failed (HTTP 403)**: "Claude doesn't have GitHub access to this repository". Commits are on the
+- **git push failed (HTTP 403)**: "Claude doesn't have GitHub access to this repository"; the GitHub connector was
+  also refused write access ("Resource not accessible by integration"). Commits are on the
   local branch `claude/zealous-allen-27fdf2`; push them once GitHub access is fixed (reconnect GitHub /
   install the Claude GitHub App on the repo).
 - RDAP has no data for some hosts (e.g. sub-domains of hosting platforms, localhost) → `domain_age_days=None`.
