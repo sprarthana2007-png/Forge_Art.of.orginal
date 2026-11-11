@@ -51,8 +51,7 @@ def validate_state(data):
         _check(isinstance(s.get('url'), str) and s['url'].strip(), f'{where}: url must be a non-empty string.')
         where = f"Suspect {s.get('domain') or s['url']}"
         score = s.get('score', 0)
-        _check(isinstance(score, (int, float)) and not isinstance(score, bool) and 0 <= score <= 100,
-               f'{where}: score must be between 0 and 100.')
+        _check(type(score) in (int, float) and 0 <= score <= 100, f'{where}: score must be between 0 and 100.')
         _check(s.get('label', 'ignored') in LABELS, f'{where}: label must be one of {", ".join(LABELS)}.')
         _check(s.get('status', 'new') in STATUSES, f'{where}: status must be one of {", ".join(STATUSES)}.')
         for key in ('reasons', 'scam_phrases', 'contacts_masked', 'image_exact_matches', 'image_similar_matches'):
@@ -83,9 +82,7 @@ def suspect_domain(suspect):
 
 def _initial_review(status):
     """What a pipeline status means as an owner decision, for cases the owner has not reviewed yet."""
-    return {'investigated': ('unsure', 'not started'),
-            'confirmed': ('fake', 'not started'),
-            'not_fake': ('genuine', 'not started'),
+    return {'confirmed': ('fake', 'not started'), 'not_fake': ('genuine', 'not started'),
             'reported': ('fake', 'sent')}.get(status, ('pending', 'not started'))
 
 

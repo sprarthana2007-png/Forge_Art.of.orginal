@@ -26,7 +26,7 @@ def photo_phash(b: bytes) -> str:
 
 
 def is_similar(a: str, b: str) -> bool:
-    return abs(imagehash.hex_to_hash(a) - imagehash.hex_to_hash(b)) <= PHASH_MATCH
+    return imagehash.hex_to_hash(a) - imagehash.hex_to_hash(b) <= PHASH_MATCH
 
 
 def normalise_contact(s: str) -> str:
