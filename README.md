@@ -53,25 +53,46 @@ on two local ports and runs the whole flow: the clone must score ≥ 75 and the 
                       python main.py --store URL [--suspect URL]
                                        |
                         prarthana/planner.py  (LangGraph StateGraph over ForgeState)
+                        weights tuned from the owner's past answers (cache/feedback.json)
                                        |
   [brand_dna] --> [hunt] --> [prioritise] --> [investigate] --> [score] --> [verdict] --> [decide]
-   build_brand_dna   |        Gemini rank /     cloaking check    rules +       one batched      |
-                     |        heuristic         (3 visits) +      campaigns     Gemini call /    |
-   (surabhi/ or      |                          Playwright:       (union-find)  template         |
-    stub)            |                          images, prices,                                  |
-                     |                          contacts, RDAP                                   |
+   build_brand_dna   |        relaunches +      cloaking check    relaunch      one batched      |
+   (surabhi/ or      |        hash/hotlink      (3 visits) +      check +       Gemini call /    |
+    stub)            |        first; Gemini     Playwright:       weighted      template         |
+                     |        / heuristic       images, prices,   rules +                        |
+                     |                          contacts, RDAP /  campaigns                      |
+                     |                          WHOIS                                            |
                      +-- name_net (surabhi/ or stub)                                              |
-                     +-- urlscan nets: hash / hotlink / title                                     |
+                     +-- urlscan nets: hash / hotlink / title (+ hashes of confirmed fakes)       |
                                                                                                   |
         new campaign & round < 3  <-------------------------------------------------------------+
         (re-hunt with campaign's shared image hashes)                                            |
         no new suspects --> END                                                                   |
-        otherwise --> [alert]: evidence PDFs + "N possible fakes" e-mail to the owner --> END     |
-                                                                                                  
-  Dashboard (surabhi/) --> confirm(suspect, yes) --> send_abuse_report(suspect) --> status=reported
+        otherwise --> [alert]: campaign graph (PNG + HTML), signed evidence PDFs,                 |
+                      "N possible fakes" e-mail to the owner --> END                              |
+
+  Dashboard (surabhi/) --> confirm(suspect, yes)  -> feedback.json (learning), confirmed_fakes.json
+                                                     (relaunch history), safe_browsing_<domain>.txt
+                       --> send_abuse_report(suspect) -> verified signed PDF + Safe Browsing pack
+                                                         to the registrar abuse contact -> reported
 ```
+## Features at a glance
+| | what | where |
+|---|---|---|
+| Hunt | urlscan nets (image hash, hotlinking, page title) + name net; re-hunts campaigns and confirmed fakes' images | `urlscan_nets.py`, `planner.py` |
+| Investigate | headless Chromium: screenshots, image copies (SHA-256 + pHash), prices, hashed + masked contacts, domain age (RDAP, WHOIS fallback) | `investigator.py` |
+| Cloaking check (#13) | bot vs Instagram-ad shopper vs another country (urlscan, Singapore); evidence collected as the shopper | `cloaking.py` |
+| Score | 7 weighted signals, labels 75 / 50, campaigns, plain-English reasons | `scorer.py` |
+| Relaunch tracking (#16) | new sites that share contacts / images / IP with a fake you confirmed: +10 and investigated first | `relaunch.py` |
+| Learning (#19) | every "fake / not fake" answer tunes each signal's weight (0.5×–1.5×) | `learning.py` |
+| Campaign graph (#14) | NetworkX graph → PNG in the PDF + self-contained `output/campaign_graph.html` | `campaign_graph.py` |
+| Evidence PDF | 5-page bento report, digitally signed (pyHanko), print-only, SHA-256 fingerprint, `verify_evidence()` | `evidence_pdf.py`, `signing.py` |
+| Alert + actions | owner e-mail, `confirm()`, demo-safe abuse report, Google Safe Browsing report pack (#15) | `alert.py` |
+| Evaluation | 20 labelled local pages, precision / recall report | `evaluate.py`, `tests/eval/` |
+
 Score: product photo copy/look-alike +30 · logo/favicon +20 · price ≥ 40% below +15 · unofficial contacts +15 ·
-domain < 30 days old +10 · cloaking (different page for an Instagram-ad shopper than for a bot) +10. Labels: ≥ 75 `likely_fake`, 50–74 `suspicious`, < 50 `ignored`. Allow-listed domains
+domain < 30 days old +10 · cloaking (different page for an Instagram-ad shopper than for a bot) +10 ·
+relaunch of a fake you already confirmed +10 (points scaled 0.5×–1.5× by what FORGE learned from your answers). Labels: ≥ 75 `likely_fake`, 50–74 `suspicious`, < 50 `ignored`. Allow-listed domains
 (and the brand's own) are always ignored.
 
 ## Accuracy (small labelled test set)
@@ -111,6 +132,8 @@ tests/          unit + end-to-end tests, fixtures
 
 ## Team Shared 21
 - **Prarthana S** (@sprarthana2007-png): #1 Planner, #3 Investigator, #5 Alert + actions, #7 urlscan nets,
-  #8 Scorer, #11 Gemini verdict, #13 Cloaking check.
+  #8 Scorer, #11 Gemini verdict, #13 Cloaking check, #14 Campaign graph, #15 Safe Browsing report pack,
+  #16 Relaunch tracking, #19 Learning from the owner's answers, WHOIS fallback, signed evidence PDFs, and the
+  evaluation on a small labelled test set (`prarthana/evaluate.py`).
 - **Surabhi Muddan** (@surabhimuddan): #2 Brand DNA, #4 Dashboard, #6 Name net, #9 Submission (video, deck),
   #10 Scam-phrase checklist, #12 Demo sites + owner verification.

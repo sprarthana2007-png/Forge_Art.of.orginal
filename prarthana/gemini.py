@@ -63,6 +63,10 @@ def gemini_json(prompt: str, state_log=None):
             if alt and alt != model:
                 model = alt
                 r = _call(model, prompt)
+        if r.status_code in (500, 502, 503, 504):   # Gemini briefly unavailable: wait and retry once
+            log(state_log, f"gemini: HTTP {r.status_code}, retrying once in 5 s")
+            time.sleep(5)
+            r = _call(model, prompt)
         if r.status_code == 429:
             log(state_log, "gemini: quota / rate limit hit (429), using fallback")
             return None

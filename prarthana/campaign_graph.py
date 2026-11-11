@@ -24,7 +24,7 @@ FONT_DIR = Path(__file__).resolve().parent / "assets" / "fonts"
 INK, MUTED, BORDER, BONE, STONE = "#141414", "#5C564D", "#D3CBBC", "#F5F1EA", "#E8E2D6"
 ORANGE, ORANGE_2, SAGE = "#FF4F1A", "#FFA27F", "#A7B39A"
 BRAND = "__brand__"
-MAP_SIZE = (8.0, 5.8)   # inches; the evidence PDF draws the map at this aspect ratio
+MAP_SIZE = (8.0, 6.5)   # inches; the evidence PDF draws the map at this aspect ratio
 
 
 def _public_ip(ip) -> bool:

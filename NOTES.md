@@ -18,8 +18,9 @@
   delivered via Resend to `GMAIL_ADDRESS` with the real abuse contact shown in the subject.
 - **#1 Planner** (`prarthana/planner.py`, `main.py`): LangGraph StateGraph, conditional edges driven by state,
   `cache/state.json` persistence, `--watch` (APScheduler, every 6 h). Live-tested on a real public store.
-- Tests: `python -m pytest -q tests` → 32 passed (unit: scorer math, masking/hashing, price/contact
-  extraction, planner decisions; e2e: local store + clone; abuse-report confirmation gate).
+- Tests: `python -m pytest -q tests` → 52 passed (~2 min; unit: scorer math + weights, masking/hashing,
+  price/contact extraction, planner decisions, cloaking, relaunch, learning, campaign graph, Safe Browsing pack,
+  WHOIS fallback, signing; e2e: local store + clone; abuse-report confirmation gate; evaluation run).
 
 ## Gemini model
 - `GEMINI_MODEL` = `gemini-3.5-flash-lite` was accepted by the API (it is listed by the models endpoint as
@@ -75,8 +76,8 @@
 - If the Playwright browser for the pinned version is not installed, `launch_chromium` falls back to
   `CHROMIUM_PATH` or `/opt/pw-browsers/chromium`.
 - PDFs write "Rs." instead of ₹ (ReportLab's built-in Helvetica has no rupee glyph).
-- Evidence PDF "bento" theme (`prarthana/evidence_pdf.py`, called by `alert.make_evidence_pdf`): 4 pages (since #13: case file, evidence,
-  cloaking check, action; before that 3)
+- Evidence PDF "bento" theme (`prarthana/evidence_pdf.py`, called by `alert.make_evidence_pdf`): 5 pages (case file, evidence,
+  cloaking check (#13), campaign map (#14), action; 3 before #13)
   and data as before (case file / evidence / action), restyled as rounded cards numbered across the report
   ("01 / VERDICT" … "16 / NEXT STEPS"), on a stone background with a warm film-grain tile
   (`prarthana/assets/grain.png`, generated once with numpy if missing). Palette is limited to stone, bone, ink,
@@ -268,10 +269,20 @@
 ## For Surabhi — what to use / provide
 Use from my code:
 ```python
-from prarthana.alert import confirm, send_abuse_report, make_evidence_pdf
-confirm(suspect, yes=True)            # dashboard "Yes, it's fake" -> status "confirmed" (False -> "not_fake")
+from prarthana.alert import confirm, send_abuse_report, make_evidence_pdf, verify_evidence
+confirm(suspect, yes=True, dna=brand_dna)  # "Yes, it's fake" -> "confirmed" (False -> "not_fake"); also records
+                                           # the answer (learning), remembers the fake (relaunch tracking) and
+                                           # writes output/safe_browsing_<domain>.txt
 send_abuse_report(suspect, brand_dna) # only works when status == "confirmed"; sets status "reported"
+verify_evidence(pdf_path) -> bool     # signed + unchanged? (show a "verified" badge)
 ```
+- Campaign graph for the dashboard: embed `output/campaign_graph.html` (self-contained, works offline) in an
+  `<iframe>`; static `output/campaign_graph.png`.
+- Safe Browsing pack: `output/safe_browsing_<domain>.txt` after a confirm: show it with a "copy" button and a
+  link to https://safebrowsing.google.com/safebrowsing/report_phish/ (the owner submits it).
+- New suspect fields worth showing: `relaunch_of` (badge "Relaunch of …"), `cloaking` + `cloaking_details`
+  (screenshots of each visit in `cloaking_details["visits"][i]["screenshot_path"]`), `signals_fired`,
+  `signal_weights`, `evidence_sha256`. Learned weights for the run: `state.signal_weights`.
 - Evidence PDFs: `output/evidence_<domain>.pdf` (path also in `suspect.pdf_path`), digitally signed;
   fingerprint in `suspect.evidence_sha256`. Check a PDF with `verify_evidence(path)` (e.g. show a
   "verified" badge in the dashboard).
@@ -279,6 +290,11 @@ send_abuse_report(suspect, brand_dna) # only works when status == "confirmed"; s
   `suspect.contacts_masked`, `suspect.screenshot_path`, `suspect.campaign_id`, `suspect.status`.
 - All results: `cache/state.json` (load with `schemas.state_from_dict(json.load(...))`); after confirming,
   save it back with `prarthana.planner.save_state(state)`.
+
+**Note on your folder:** your merged work is in `forge-starter/surabhi/` (Streamlit app, `analyze.py`, demo sites
+`case1–4` + `official`). My code looks for `surabhi/` at the repo root, and `analyze.py` does not have the functions
+below yet, so FORGE still uses my stubs. Either move / add these functions under a root `surabhi/` package, or tell
+me and I will point `prarthana/teammate.py` at `forge-starter/surabhi/`. I have not edited anything in your folder.
 
 Please provide (same signatures; my code imports them automatically):
 ```python
