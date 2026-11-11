@@ -736,6 +736,9 @@ class Doc:
         detected = bool(cl.get("cloaking"))
         visits = list(cl.get("visits") or [])
         v3 = cl.get("visit3_status") or "not run"
+        if v3 == "ok":
+            from prarthana.cloaking import country_name
+            v3 = f"ok, from {cl.get('visit3_country_name') or country_name(cl.get('visit3_country'))}"
 
         # verdict band (ink)
         hh = 132
@@ -757,7 +760,9 @@ class Doc:
         slots = [("bot", INK, BONE), ("Instagram-ad shopper", ORANGE, INK), (None, SAGE, INK)]
         by_label = {v["label"]: v for v in visits}
         net = next((v for v in visits if v["label"] not in ("bot", "Instagram-ad shopper")), None)
-        from prarthana.cloaking import VISIT_PROFILES, network_label
+        from prarthana.cloaking import VISIT_PROFILES, country, country_name, network_label
+        cc = (net or {}).get("country") or cl.get("visit3_country") or country()
+        cname = f"{(net or {}).get('country_name') or cl.get('visit3_country_name') or country_name(cc)} ({cc})"
         bw = (CW - 2 * G) / 3
         comps_n = max(1, len(cl.get("comparisons") or []))
         comp_h = 36 + 14 + comps_n * 21 + 4
@@ -773,21 +778,25 @@ class Doc:
             name = label or (net["label"] if net else network_label())
             x = M + i * (bw + G)
             yy = self.card(x, y0, bw, hh, f"visit {i + 1}")
-            self.pill(x + bw - P, y0 - P - 10, name, fill=fill, color=fg, size=6.2, h=13, right=True)
+            self.pill(x + bw - P + 2, y0 - P - 10, name, fill=fill, color=fg, size=5.9, h=13, right=True)
             path = (v or {}).get("screenshot_path")
             self.arch_image(path if path and Path(path).exists() else None, x + P, yy - ih - 2, bw - 2 * P, ih,
                             top=True, outline=ORANGE if (detected and label == "Instagram-ad shopper") else BORDER)
             ly = yy - ih - 15
             if v and not v.get("error"):
                 self.text(x + P, ly, self.fit(v.get("final_url") or "", bw - 2 * P, 6.9, MONO_M), 6.9, MONO_M, INK)
-                self.text(x + P, ly - 11, f"{v.get('text_length', 0)} chars of visible text", 6.6, MONO, MUTED)
+                info = f"{v.get('text_length', 0)} chars of visible text"
+                if label is None:  # visit 3: the country comes first so it is never cut off
+                    info = f"{cname} · {v.get('text_length', 0)} chars"
+                self.text(x + P, ly - 11, self.fit(info, bw - 2 * P, 6.6, MONO), 6.6,
+                          MONO_M if label is None else MONO, INK if label is None else MUTED)
                 prof = v.get("profile") or VISIT_PROFILES.get(name, "")
             elif v:
                 self.text(x + P, ly, "visit failed", 6.9, MONO_M, ORANGE)
                 self.text(x + P, ly - 11, self.fit(v.get("error", ""), bw - 2 * P, 6.6, MONO), 6.6, MONO, MUTED)
                 prof = v.get("profile") or ""
             else:
-                self.text(x + P, ly, "skipped" if label is None else "not run", 6.9, MONO_M, MUTED)
+                self.text(x + P, ly, f"skipped · {cname}" if label is None else "not run", 6.9, MONO_M, MUTED)
                 prof = v3.replace("skipped: ", "") if label is None else "Cloaking check was not run."
             self.para(_t(prof, True), x + P, ly - 17, bw - 2 * P, style(6.9, 9, MUTED, SANS))
         self.y = y0 - hh - G

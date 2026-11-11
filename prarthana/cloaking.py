@@ -4,8 +4,9 @@ check_cloaking(suspect) visits the suspect three ways and compares the visits:
   1. "bot"                   desktop headless Chromium, default user agent, no referrer
   2. "Instagram-ad shopper"  Android phone emulation, Instagram in-app browser user agent,
                              Referer https://l.instagram.com/, URL + ?fbclid=<random>&utm_source=ig&utm_medium=paid
-  3. "India network"         urlscan.io Scan API from another network location (country FORGE_CLOAK_COUNTRY, default
-                             "in"). Skipped, with the reason recorded, if the country / scan is not available.
+  3. "Other country (urlscan)" urlscan.io Scan API from another country's network (FORGE_CLOAK_COUNTRY, default "sg" =
+                             Singapore; urlscan has no India location). Skipped, with the reason recorded, if the
+                             country / scan is not available.
 Every pair of visits is compared on: screenshot pHash distance (> 18 = visually different), visible-text similarity
 (difflib ratio < 0.6 = different text) and the final domain after redirects.
 
@@ -42,12 +43,25 @@ VISIT_PROFILES = {
 }
 
 
+OTHER_COUNTRY = "Other country (urlscan)"   # label of visit 3; the actual country is stored on the visit
+
+
 def country() -> str:
-    return (env("FORGE_CLOAK_COUNTRY") or "in").lower()
+    return (env("FORGE_CLOAK_COUNTRY") or "sg").lower()
+
+
+def country_name(cc: str | None = None) -> str:
+    cc = (cc or country()).lower()
+    return COUNTRY_NAMES.get(cc, cc.upper())
 
 
 def network_label() -> str:
-    return f"{COUNTRY_NAMES.get(country(), country().upper())} network"
+    return OTHER_COUNTRY
+
+
+def phrase(v: dict) -> str:
+    """How a visit is named inside a sentence ('the bot', 'the visit from Singapore (urlscan)')."""
+    return v.get("phrase") or v["label"]
 
 
 def ad_url(url: str) -> str:
@@ -160,7 +174,7 @@ def available_countries() -> list:
 
 def urlscan_visit(url: str) -> tuple:
     """Returns (visit dict or None, status string: 'ok' | 'skipped: <reason>')."""
-    label = network_label()
+    label = OTHER_COUNTRY
     if is_local(url):
         return None, "skipped: local address, urlscan cannot reach it"
     key = env("URLSCAN_API_KEY")
@@ -170,7 +184,7 @@ def urlscan_visit(url: str) -> tuple:
     try:
         avail = available_countries()
         if avail and cc not in avail:
-            return None, (f"skipped: urlscan offers no {COUNTRY_NAMES.get(cc, cc.upper())} scanning location "
+            return None, (f"skipped: urlscan offers no {country_name(cc)} scanning location "
                           f"(available: {', '.join(avail)})")
     except Exception:
         pass  # list unavailable: let the scan request itself decide
@@ -203,7 +217,9 @@ def urlscan_visit(url: str) -> tuple:
         time.sleep(5)
     if data is None:
         return None, f"skipped: urlscan result not ready within {URLSCAN_POLL_S}s"
-    v = {"label": label, "profile": f"urlscan.io scanner in {COUNTRY_NAMES.get(cc, cc.upper())} (scan {uuid})",
+    v = {"label": label, "country": cc, "country_name": country_name(cc),
+         "phrase": f"visit from {country_name(cc)} (urlscan)",
+         "profile": f"urlscan.io scanner in {country_name(cc)} (scan {uuid})",
          "requested_url": url, "final_url": (data.get("page") or {}).get("url") or url, "screenshot_path": "",
          "text_length": 0, "text": "", "phash": None, "error": "", "urlscan_uuid": uuid}
     try:
@@ -234,7 +250,7 @@ def compare(a: dict, b: dict) -> dict:
            "different": False, "reasons": [], "notes": []}
     if a.get("error") or b.get("error"):
         bad = a if a.get("error") else b
-        out["notes"].append(f"Could not compare with the {bad['label']} visit (it failed to load).")
+        out["notes"].append(f"Could not compare with the {phrase(bad)} (it failed to load).")
         return out
     sim = text_similarity(a["text"], b["text"])
     out["text_similarity"] = round(sim, 2)
@@ -244,19 +260,19 @@ def compare(a: dict, b: dict) -> dict:
     da, db = (registrable(x) for x in out["domains"])
     if da and db and da != db:
         out["different"] = True
-        out["reasons"].append(f"The {a['label']} ended up on {da}, but the {b['label']} was sent to {db}.")
+        out["reasons"].append(f"The {phrase(a)} ended up on {da}, but the {phrase(b)} was sent to {db}.")
     if sim < TEXT_DIFF:
         out["different"] = True
-        out["reasons"].append(f"The {b['label']} saw different text than the {a['label']} "
+        out["reasons"].append(f"The {phrase(b)} saw different text than the {phrase(a)} "
                               f"(only {round(sim * 100)}% the same).")
     d = out["phash_distance"]
     if d is not None and d > VISUAL_DIFF:
         if sim < LAYOUT_TOLERANCE:
             out["different"] = True
-            out["reasons"].append(f"The {b['label']}'s page also looks different from the {a['label']}'s "
-                                  f"(screenshot difference {d}, threshold {VISUAL_DIFF}).")
+            out["reasons"].append(f"The page seen by the {phrase(b)} also looks different from the one seen by "
+                                  f"the {phrase(a)} (screenshot difference {d}, threshold {VISUAL_DIFF}).")
         else:
-            out["notes"].append(f"Screenshots of {a['label']} and {b['label']} differ (difference {d}) but the "
+            out["notes"].append(f"Screenshots of the {phrase(a)} and the {phrase(b)} differ (difference {d}) but the "
                                 f"text is {round(sim * 100)}% the same: layout / screen-size difference, not counted.")
     return out
 
@@ -284,6 +300,8 @@ def check_cloaking(suspect: Suspect, use_urlscan: bool = True, state_log=None, u
     else:
         v3, status = None, "skipped: time budget for this round was used up"
     result["visit3_status"] = status
+    result["visit3_country"] = country()
+    result["visit3_country_name"] = country_name()
     if v3:
         visits.append(v3)
     for v in visits:
@@ -299,7 +317,8 @@ def check_cloaking(suspect: Suspect, use_urlscan: bool = True, state_log=None, u
     result["cloaking"] = any(c["different"] for c in result["comparisons"])
     # keep the saved result small: no full page text, only what the report needs
     result["visits"] = [{k: v.get(k) for k in ("label", "profile", "requested_url", "final_url", "screenshot_path",
-                                               "text_length", "error", "urlscan_uuid") if v.get(k) is not None}
+                                               "text_length", "error", "urlscan_uuid", "country", "country_name",
+                                               "phrase") if v.get(k) is not None}
                         for v in visits]
     if sum(1 for v in visits if not v.get("error")) < 2:
         result["notes"].append("Fewer than two visits loaded, so cloaking could not be checked.")

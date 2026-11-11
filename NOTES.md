@@ -101,7 +101,8 @@
   1. **bot**: desktop headless Chromium, default user agent, no referrer;
   2. **Instagram-ad shopper**: Pixel 7 emulation (touch), Instagram in-app browser user agent, Referer
      `https://l.instagram.com/`, URL + `?fbclid=<random>&utm_source=ig&utm_medium=paid`;
-  3. **India network**: urlscan.io Scan API (`visibility: unlisted`, `country: in`), polled up to 90 s,
+  3. **Other country (urlscan)**: urlscan.io Scan API (`visibility: unlisted`, `country: sg` = Singapore by
+     default, set with `FORGE_CLOAK_COUNTRY`), polled up to 90 s,
      then its screenshot and page text (from urlscan's DOM copy).
 - Each pair is compared on screenshot pHash distance (> 18 = visually different), visible-text similarity
   (difflib ratio < 0.6 = different) and the final domain after redirects. Cloaking = different text, a
@@ -119,18 +120,21 @@
   (images, prices, contacts, screenshot) as the Instagram-ad shopper. Otherwise it would only see the
   maintenance page and miss everything. In the test, the cloaked clone scores 90 (80 + 10); without this switch it
   would have scored ~0.
-- **Visit 3 status: skipped.** urlscan has **no India scanning location for any plan**: `country: "in"` is
-  rejected ("not part of the available scanning locations"), and `/api/v1/availableCountries/` lists de, us,
-  jp, fr, gb, nl, ca, it, es, se, fi, dk, no, is, au, nz, pl, sg, pt, at, ch, il, tr, tw, be. So visit 3 is skipped
-  with that reason and the check runs on visits 1 + 2. Set `FORGE_CLOAK_COUNTRY=sg` (Singapore) to use the nearest
-  available location instead; that path was tested live (scan → poll → screenshot → text in ~25 s). Visit 3
-  is also skipped for local addresses, when `URLSCAN_API_KEY` is missing, or when the time budget is low.
+- **Visit 3 runs from Singapore by default.** urlscan has **no India scanning location for any plan**
+  (`country: "in"` is rejected as "not part of the available scanning locations";
+  `/api/v1/availableCountries/` lists de, us, jp, fr, gb, nl, ca, it, es, se, fi, dk, no, is, au, nz, pl, sg, pt, at,
+  ch, il, tr, tw, be). So the default is `sg` (Singapore, the closest location), and the visit is labelled
+  "Other country (urlscan)" with the actual country shown in the PDF (e.g. "Singapore (sg)") and in the
+  differences ("the visit from Singapore (urlscan) …"). Change it with `FORGE_CLOAK_COUNTRY=<code>`; a country
+  urlscan does not offer is skipped with that reason. Tested live: scan → poll → screenshot → text in ~25 s.
+  Visit 3 is also skipped for local addresses, when `URLSCAN_API_KEY` is missing, or when the time budget is low;
+  the check then runs on visits 1 + 2.
 - **Planner:** `prioritise` builds `cloak_queue` with owner reports, `urlscan_hash` and `urlscan_hotlink`
   suspects first. `investigate` runs cloaking checks in that order within `FORGE_CLOAK_BUDGET` seconds
   (default 300). Visit 3 runs only while ≥ 100 s of budget is left, and checks after the budget is used up are
   skipped (recorded in the PDF).
 - **Evidence PDF is now 4 pages:** a dedicated "cloaking check" page after the evidence page (verdict band, the
-  three visits as arch screenshots labelled bot / Instagram-ad shopper / India network, a comparison table, the
+  three visits as arch screenshots labelled bot / Instagram-ad shopper / Other country (urlscan) with the country used, a comparison table, the
   differences as bullets, visit 3 status). Page 2 was already full, so a card there would have pushed the
   contacts table onto a near-empty extra page. Also: a "Cloaking" row in the page-1 signals, a cloaking segment
   in the score bar, and a "Cloaking check" step in the timeline. Gemini gets `cloaking` + the differences as
@@ -138,7 +142,7 @@
 - **Honest limits:**
   - Sites that cloak **only by Indian mobile IP address** (show the scam only to visitors on Jio / Airtel / Vi
     mobile networks) are not caught fully: FORGE's visits come from a datacenter, and urlscan has no Indian
-    location. Catching those needs a mobile / residential Indian network (e.g. a phone hotspot or a residential
+    location (visit 3 uses Singapore). Catching those needs a mobile / residential Indian network (e.g. a phone hotspot or a residential
     proxy) for visit 2.
   - Cloaking by other signals (cookies from a real ad click, Facebook's own click-validation, time of day,
     fingerprinting that spots headless Chromium) may still hide the scam from all three visits.

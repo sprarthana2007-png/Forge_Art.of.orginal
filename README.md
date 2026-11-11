@@ -77,9 +77,9 @@ domain < 30 days old +10 · cloaking (different page for an Instagram-ad shopper
 ## Cloaking check (#13)
 Scam sites often show a clean page to bots and the real scam page only to shoppers from an Instagram / Facebook ad.
 FORGE visits every suspect three ways (desktop **bot**, **Instagram-ad shopper** on an emulated Android phone with
-an Instagram referrer and `fbclid`, and a **different network location** via urlscan.io) and compares screenshots,
+an Instagram referrer and `fbclid`, and **another country** via urlscan.io, Singapore by default) and compares screenshots,
 visible text and final domains. If the visits see different pages, that is evidence (+10) and FORGE collects the
-rest of its evidence as the shopper. See NOTES.md for details and limits (urlscan has no India location; sites
+rest of its evidence as the shopper. See NOTES.md for details and limits (visit 3 runs from Singapore because urlscan has no India location; sites
 that cloak only by Indian mobile IP need a mobile / residential network).
 
 ## Repo layout
