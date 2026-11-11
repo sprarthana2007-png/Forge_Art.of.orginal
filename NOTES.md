@@ -75,6 +75,16 @@
 - If the Playwright browser for the pinned version is not installed, `launch_chromium` falls back to
   `CHROMIUM_PATH` or `/opt/pw-browsers/chromium`.
 - PDFs write "Rs." instead of ₹ (ReportLab's built-in Helvetica has no rupee glyph).
+- Evidence PDF redesign (`prarthana/evidence_pdf.py`, called by `alert.make_evidence_pdf`): 3-page forensic
+  report drawn on the canvas — p1 CASE FILE (navy header, case ID `FORGE-YYYYMMDD-XXXX` = date + first 4 hex
+  of SHA-256(url), score ring, verdict badge, AI-verdict quote, key-facts cards, signals checklist), p2 EVIDENCE
+  (real-store vs suspect screenshots, original → copy image pairs, score breakdown + stacked bar, masked
+  contacts), p3 ACTION (timeline, registrar + hosting abuse contacts from RDAP domain/IP, report status, next
+  steps). The last panel on each page stretches to the footer; a 2-pass render gives "Page X of N".
+  To show the real store and the brand originals, the PDF visits the store once and caches its screenshot +
+  image thumbnails in `cache/brand_assets/`. If a page overflows (many contacts) it continues on an
+  "EVIDENCE (continued)" page; contacts beyond the space show "+N more".
+- The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
 
 ## For Surabhi — what to use / provide
 Use from my code:

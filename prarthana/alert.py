@@ -30,79 +30,27 @@ def confirm(suspect: Suspect, yes: bool) -> Suspect:
 
 
 # ------------------------------------------------------------------ PDF
-def _pdf_text(s) -> str:
-    """Escape for ReportLab Paragraph markup; Helvetica has no rupee glyph, so write Rs."""
-    s = str(s).replace("₹", "Rs. ")
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
 def _safe_name(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", s).strip("_")[:60]
 
 
 def make_evidence_pdf(s: Suspect, dna: BrandDNA) -> str:
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet
-    from reportlab.lib.units import cm
-    from reportlab.platypus import Image as RLImage, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    path = OUTPUT / f"evidence_{_safe_name(s.domain or s.url)}.pdf"
-    st = getSampleStyleSheet()
-    P = lambda t, style="BodyText": Paragraph(_pdf_text(t), st[style])
-    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    story = [P(f"FORGE evidence report: {dna.brand_name or dna.store_url}", "Title"),
-             P(f"Generated {now}. Real store: {dna.store_url}"), Spacer(1, 6)]
-    rows = [["Suspect URL", _pdf_text(s.url)], ["Found by", s.found_by],
-            ["Score", f"{s.score}/100 ({s.label})"], ["Campaign", s.campaign_id or "-"],
-            ["Domain age", f"{s.domain_age_days} days" if s.domain_age_days is not None else "unknown"],
-            ["Contacts (masked)", ", ".join(s.contacts_masked) or "-"],
-            ["Prices seen", _pdf_text(", ".join(f"{k}: Rs. {v:,.0f}" for k, v in (s.prices_found or {}).items()) or "-")],
-            ["Status", s.status]]
-    t = Table([[Paragraph(f"<b>{a}</b>", st["BodyText"]), Paragraph(str(b), st["BodyText"])] for a, b in rows],
-              colWidths=[4 * cm, 13 * cm])
-    t.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, colors.grey), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story += [t, Spacer(1, 8), P("Verdict", "Heading2"), P(s.verdict or "-"),
-              P("Why it scored this way", "Heading2")]
-    story += [P("• " + r) for r in s.reasons] or [P("-")]
-    imgs = [m for m in (s.image_exact_matches or []) + (s.image_similar_matches or []) if m.get("path")]
-    if imgs:
-        story += [P("Brand images found on the suspect site", "Heading2")]
-        cells = []
-        for m in imgs[:6]:
-            try:
-                kind = "exact copy" if m in s.image_exact_matches else "look-alike"
-                cells.append([RLImage(m["path"], width=4 * cm, height=4 * cm, kind="proportional"),
-                              Paragraph(kind, st["BodyText"])])
-            except Exception:
-                pass
-        if cells:
-            story.append(Table([[c[0] for c in cells[:3]], [c[1] for c in cells[:3]]] +
-                               ([[c[0] for c in cells[3:]], [c[1] for c in cells[3:]]] if len(cells) > 3 else [])))
-    if s.screenshot_path and Path(s.screenshot_path).exists():
-        story += [P("Screenshot of the suspect site", "Heading2")]
-        try:
-            story.append(RLImage(s.screenshot_path, width=16 * cm, height=20 * cm, kind="proportional"))
-        except Exception:
-            story.append(P("(screenshot could not be embedded)"))
-    story += [Spacer(1, 8), P("Personal data note: contacts are shown masked and stored only as SHA-256 hashes.",
-                               "Italic")]
-    SimpleDocTemplate(str(path), pagesize=A4, title=f"FORGE evidence {s.domain}",
-                      leftMargin=2 * cm, rightMargin=2 * cm).build(story)
-    s.pdf_path = str(path)
-    return str(path)
+    """3-page forensic evidence report (layout lives in prarthana/evidence_pdf.py). Returns the PDF path."""
+    from prarthana.evidence_pdf import build_evidence_pdf
+    return build_evidence_pdf(s, dna)
 
 
 # ------------------------------------------------------------------ email transport
-def send_email(to: str, subject: str, body: str, attachments: list, eml_name: str, state_log=None) -> str:
-    """Returns how it was delivered: 'resend' | 'smtp' | 'eml:<path>'."""
+def send_email(to: str, subject: str, body: str, attachments: list, eml_name: str, state_log=None,
+               html: str = "") -> str:
+    """Returns how it was delivered: 'resend' | 'smtp' | 'eml:<path>'. `html` is an optional rich version."""
     files = [Path(a) for a in attachments if a and Path(a).exists()]
     if env("RESEND_API_KEY") and to:
         try:
             r = requests.post("https://api.resend.com/emails", timeout=60,
                               headers={"Authorization": f"Bearer {env('RESEND_API_KEY')}"},
                               json={"from": FROM_RESEND, "to": [to], "subject": subject, "text": body,
+                                    **({"html": html} if html else {}),
                                     "attachments": [{"filename": f.name,
                                                      "content": base64.b64encode(f.read_bytes()).decode()}
                                                     for f in files]})
@@ -117,6 +65,8 @@ def send_email(to: str, subject: str, body: str, attachments: list, eml_name: st
     msg["To"] = to or "brand-owner@example.invalid"
     msg["Subject"] = subject
     msg.set_content(body)
+    if html:
+        msg.add_alternative(html, subtype="html")
     for f in files:
         msg.add_attachment(f.read_bytes(), maintype="application", subtype="pdf", filename=f.name)
     if env("GMAIL_APP_PASSWORD") and env("GMAIL_ADDRESS") and to:
@@ -137,6 +87,64 @@ def send_email(to: str, subject: str, body: str, attachments: list, eml_name: st
 
 
 # ------------------------------------------------------------------ actions
+def _alert_html(flagged: list, dna: BrandDNA) -> str:
+    """Branded HTML version of the owner alert (inline styles, table layout for e-mail clients)."""
+    from html import escape
+    from prarthana.evidence_pdf import case_id
+    colours = {"likely_fake": "#E5484D", "suspicious": "#F5A524"}
+    labels = {"likely_fake": "LIKELY FAKE", "suspicious": "SUSPICIOUS"}
+    cards = []
+    for s in flagged:
+        col = colours.get(s.label, "#5B6675")
+        n_img = len(s.image_exact_matches or []) + len(s.image_similar_matches or [])
+        age = f"{s.domain_age_days} days" if s.domain_age_days is not None else "unknown"
+        cards.append(f"""
+<tr><td style="padding:0 0 14px 0">
+ <table width="100%" cellpadding="0" cellspacing="0" style="background:#F2F4F7;border-radius:10px;border-left:5px solid {col}">
+  <tr><td style="padding:16px 18px">
+   <table width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="font:bold 15px Helvetica,Arial,sans-serif;color:#0B1F3A">{escape(s.domain or s.url)}</td>
+    <td align="right"><span style="background:{col};color:#fff;font:bold 11px Helvetica,Arial,sans-serif;
+      letter-spacing:1px;padding:5px 10px;border-radius:12px">{labels.get(s.label, s.label)}</span></td>
+   </tr></table>
+   <div style="font:12px Helvetica,Arial,sans-serif;color:#5B6675;margin:4px 0 12px">{escape(s.url)}</div>
+   <table cellpadding="0" cellspacing="0"><tr>
+    <td style="background:#0B1F3A;color:#fff;border-radius:8px;padding:8px 14px;text-align:center">
+      <div style="font:bold 22px Helvetica,Arial,sans-serif">{s.score}</div>
+      <div style="font:10px Helvetica,Arial,sans-serif;color:#9FB0C8">/ 100</div></td>
+    <td style="padding-left:14px;font:12px Helvetica,Arial,sans-serif;color:#1B2433;line-height:19px">
+      <b>{n_img}</b> brand images copied &nbsp;·&nbsp; <b>{len(s.contacts_masked or [])}</b> unofficial contacts
+      &nbsp;·&nbsp; domain age <b>{age}</b><br>
+      <span style="color:#5B6675">Case {case_id(s)} &nbsp;·&nbsp; evidence PDF attached</span></td>
+   </tr></table>
+   <div style="margin-top:12px;background:#FFF4F1;border-left:3px solid #FF6B57;padding:10px 12px;
+     font:13px Helvetica,Arial,sans-serif;color:#1B2433;line-height:19px">{escape(s.verdict or "")}</div>
+  </td></tr></table>
+</td></tr>""")
+    return f"""<!doctype html><html><body style="margin:0;background:#E9EDF2">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#E9EDF2;padding:24px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden">
+ <tr><td style="background:#0B1F3A;padding:26px 28px 22px">
+   <div style="font:bold 11px Helvetica,Arial,sans-serif;color:#FF6B57;letter-spacing:2px">&#9670; FORGE · ART OF ORIGINAL</div>
+   <div style="font:bold 24px Helvetica,Arial,sans-serif;color:#ffffff;margin-top:8px">{len(flagged)} possible fake{'s' if len(flagged) != 1 else ''} of your store</div>
+   <div style="font:13px Helvetica,Arial,sans-serif;color:#9FB0C8;margin-top:6px">{escape(dna.brand_name or '')} &nbsp;·&nbsp; {escape(dna.store_url)}</div>
+ </td></tr>
+ <tr><td style="height:4px;background:#FF6B57;font-size:0;line-height:0">&nbsp;</td></tr>
+ <tr><td style="padding:22px 24px 8px">
+  <table width="100%" cellpadding="0" cellspacing="0">{''.join(cards)}</table>
+ </td></tr>
+ <tr><td style="padding:0 24px 22px">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0B1F3A;border-radius:10px"><tr>
+   <td style="padding:16px 18px;font:13px Helvetica,Arial,sans-serif;color:#ffffff;line-height:20px">
+    <b style="color:#FF6B57">Please confirm in your FORGE dashboard.</b><br>
+    Nothing is reported until you press <b>"Yes, it's fake"</b>. Then FORGE sends the evidence PDF to the
+    site's registrar abuse contact.</td></tr></table>
+ </td></tr>
+ <tr><td style="background:#F2F4F7;padding:14px 24px;font:11px Helvetica,Arial,sans-serif;color:#5B6675">
+   Generated by FORGE · contacts hashed and masked (no personal data stored)</td></tr>
+</table></td></tr></table></body></html>"""
+
+
 def send_alert(suspects: list, dna: BrandDNA, state_log=None) -> str:
     """Email the brand owner about likely_fake/suspicious suspects, with evidence PDFs attached."""
     flagged = [s for s in suspects if s.label in ("likely_fake", "suspicious")]
@@ -151,7 +159,7 @@ def send_alert(suspects: list, dna: BrandDNA, state_log=None) -> str:
             "Nothing is reported until you confirm.\n\n- FORGE")
     return send_email(env("GMAIL_ADDRESS"),
                       f"{len(flagged)} possible fakes of your store. Please confirm in your FORGE dashboard.",
-                      body, pdfs, "alert_email.eml", state_log)
+                      body, pdfs, "alert_email.eml", state_log, html=_alert_html(flagged, dna))
 
 
 def find_abuse_email(domain: str):
