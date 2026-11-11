@@ -15,8 +15,9 @@ if str(REPO) not in sys.path:
     sys.path.append(str(REPO))
 
 import actions  # noqa: E402
+import storage  # noqa: E402
 import ui  # noqa: E402
-from surabhi import brand_dna, name_net, protection, store  # noqa: E402
+from surabhi import brand_dna, engine_view, name_net, protection, store  # noqa: E402
 
 IMAGE_TYPES = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg']
 CLASS_TEXT = {'official': 'Official', 'unrelated': 'Unrelated', 'lookalike': 'Lookalike name',
@@ -60,17 +61,49 @@ except (sqlite3.Error, OSError) as exc:
     st.error(f'Unable to open the Brand DNA database ({store.db_path()}): {exc}')
     st.stop()
 
+# --- What the FORGE engine found (cache/state.json) -------------------------
+engine_state = None
+if storage.state_source() == 'engine':
+    try:
+        engine_state = storage.read_state()
+    except (OSError, ValueError) as exc:
+        ui.note(f'Engine results could not be read: {exc}')
+engine = engine_view.engine_summary(engine_state)
+
 # --- Overview -------------------------------------------------------------
+total = engine_view.combined_stats(stats, sum(i['risk_level'] == 'high' for i in investigations),
+                                   [b['official_domain'] for b in brands], engine)
 cols = st.columns(4)
-cols[0].metric('Registered brands', stats['brands'])
-cols[1].metric('Images analysed', stats['images_analysed'])
-cols[2].metric('Exact duplicates', stats['exact_matches'])
-cols[3].metric('Visually similar', stats['similar_matches'])
+cols[0].metric('Registered brands', total['brands'])
+cols[1].metric('Images analysed', total['images_analysed'])
+cols[2].metric('Exact duplicates', total['exact_matches'])
+cols[3].metric('Visually similar', total['similar_matches'])
 cols = st.columns(4)
-cols[0].metric('Brand fingerprints', stats['fingerprints'])
-cols[1].metric('Suspicious domain variations', stats['suspicious_domains'])
-cols[2].metric('Investigations', stats['investigations'])
-cols[3].metric('High risk', sum(i['risk_level'] == 'high' for i in investigations))
+cols[0].metric('Brand fingerprints', total['fingerprints'])
+cols[1].metric('Suspicious domain variations', total['suspicious_domains'])
+cols[2].metric('Investigations', total['investigations'])
+cols[3].metric('High risk', total['high_risk'])
+
+if engine['has_engine']:
+    ui.section('Brand DNA from the FORGE engine')
+    dna = engine['brand']
+    if dna is not None:
+        photos = len(getattr(dna, 'photo_sha256s', None) or [])
+        table(('Brand', 'Official website', 'Product photos', 'Logo', 'Favicon', 'Official contacts', 'Fingerprints'),
+              [[f'<b>{escape(getattr(dna, "brand_name", "") or "—")}</b>',
+                ui.breakable(getattr(dna, 'store_url', '') or '—'), str(photos),
+                tag('Yes', solid=True) if getattr(dna, 'logo_sha256', '') else tag('No'),
+                tag('Yes', solid=True) if getattr(dna, 'favicon_sha256', '') else tag('No'),
+                f"{len(getattr(dna, 'official_contact_hashes', None) or [])} (hashed)",
+                f"{engine['stats']['fingerprints']} (SHA-256 + pHash)"]])
+    if engine['suspects']:
+        table(('Suspect', 'Found by', 'Risk', 'Label', 'Exact copies', 'Look-alikes', 'Cloaking', 'Status'),
+              [[ui.breakable(r['domain']), escape(r['found_by'].replace('_', ' ')), meter(r['score']),
+                tag(r['label'].replace('_', ' ') or '—', solid=r['label'] == 'likely_fake'),
+                str(r['exact']), str(r['similar']), 'Yes' if r['cloaking'] else 'No',
+                escape(r['status'] or '—')] for r in engine['suspects']])
+    ui.note('These come from the FORGE engine run (cache/state.json). Open the Evidence page to review a case, '
+            'mark it Fake, create the signed PDF and send the abuse report.')
 
 # --- Brands ---------------------------------------------------------------
 ui.section('Registered brands', 1)
@@ -85,6 +118,9 @@ if brands:
                      tag(fp['status'].title(), solid=fp['status'] == 'complete'),
                      str(fp['logos']), str(fp['references']), escape(b['created_at'][:10])])
     table(('Logo', 'Brand', 'Official domain', 'Brand DNA', 'Logos', 'Reference images', 'Registered'), rows)
+elif engine['brand'] is not None:
+    ui.note('No extra brand registered here. The brand above comes from the FORGE engine; register another '
+            'brand below to check it by hand.')
 else:
     ui.note('No brand registered yet. Register your brand below to build its Brand DNA.')
 
@@ -235,6 +271,10 @@ with st.form('namenet'):
 
 ui.section('Suspicious domain variations', 4)
 flagged = [f for f in findings if f['classification'] != 'unrelated']
+if engine['name_net']:
+    table(('Domain', 'Found by', 'Risk', 'Label'),
+          [[ui.breakable(r['domain']), 'NameNet (FORGE engine)', meter(r['score']),
+            tag(r['label'].replace('_', ' ') or '—', solid=r['label'] == 'likely_fake')] for r in engine['name_net']])
 if flagged:
     table(('Domain', 'Brand', 'Name similarity', 'Classification', 'Why it was flagged'),
           [[ui.breakable(f['domain']), escape(f['brand_name']), meter(f['similarity']),
@@ -242,7 +282,7 @@ if flagged:
             '<br>'.join(escape(t['detail']) for t in f['techniques']) or escape(f['reasons'][0] if f['reasons'] else '')]
            for f in flagged])
     ui.note(name_net.EVIDENCE_NOTE)
-else:
+elif not engine['name_net']:
     ui.note('No lookalike domains recorded yet.')
 
 # --- Combined risk ------------------------------------------------------------
