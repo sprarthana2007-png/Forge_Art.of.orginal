@@ -7,13 +7,43 @@ suspect's `status` field so the rest of the pipeline sees them.
 import json
 import os
 import sqlite3
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-from schemas import Suspect, state_from_dict
-
 ROOT = Path(__file__).resolve().parent
-STATE_FILE = Path(os.getenv('FORGE_STATE_FILE', str(ROOT / 'forge_state.json'))).resolve()
+REPO = ROOT.parent
+if str(REPO) not in sys.path:  # the shared schemas.py and the FORGE engine (prarthana/) live at the repo root
+    sys.path.append(str(REPO))
+
+from schemas import Suspect, state_from_dict  # noqa: E402
+
+DEMO_STATE = ROOT / 'forge_state.json'
+ENGINE_STATE = Path(os.getenv('FORGE_CACHE_DIR') or REPO / 'cache').resolve() / 'state.json'
+
+
+def default_state_file():
+    """FORGE_STATE_FILE if set; else the FORGE engine's results (cache/state.json) once it has run; else the demo."""
+    if os.getenv('FORGE_STATE_FILE'):
+        return Path(os.environ['FORGE_STATE_FILE']).resolve()
+    return ENGINE_STATE if ENGINE_STATE.is_file() else DEMO_STATE.resolve()
+
+
+def refresh_state_file():
+    """Switch from the demo to the engine's results as soon as the engine has produced them (called per page)."""
+    global STATE_FILE
+    if STATE_FILE == DEMO_STATE.resolve() and not os.getenv('FORGE_STATE_FILE'):
+        STATE_FILE = default_state_file()
+
+
+def state_source():
+    """'engine', 'demo' or 'custom' (FORGE_STATE_FILE pointing somewhere else)."""
+    if STATE_FILE == ENGINE_STATE:
+        return 'engine'
+    return 'demo' if STATE_FILE == DEMO_STATE.resolve() else 'custom'
+
+
+STATE_FILE = default_state_file()
 DB_FILE = Path(os.getenv('FORGE_DB_PATH', str(ROOT / 'data' / 'forge.db'))).resolve()
 DECISIONS = ('pending', 'fake', 'genuine', 'unsure')
 REPORT_STATUSES = ('not started', 'drafted', 'sent', 'resolved')
@@ -54,9 +84,12 @@ def validate_state(data):
         _check(type(score) in (int, float) and 0 <= score <= 100, f'{where}: score must be between 0 and 100.')
         _check(s.get('label', 'ignored') in LABELS, f'{where}: label must be one of {", ".join(LABELS)}.')
         _check(s.get('status', 'new') in STATUSES, f'{where}: status must be one of {", ".join(STATUSES)}.')
-        for key in ('reasons', 'scam_phrases', 'contacts_masked', 'image_exact_matches', 'image_similar_matches'):
+        for key in ('reasons', 'scam_phrases', 'contacts_masked'):
             _check(isinstance(s.get(key, []), list) and all(isinstance(v, str) for v in s.get(key, [])),
                    f'{where}: {key} must be a list of strings.')
+        for key in ('image_exact_matches', 'image_similar_matches'):  # engine format: {url, sha256|phash, path}
+            _check(isinstance(s.get(key, []), list) and all(isinstance(v, (dict, str)) for v in s.get(key, [])),
+                   f'{where}: {key} must be a list of image matches.')
         pairs = s.get('matched_image_pairs', [])
         _check(isinstance(pairs, list) and all(isinstance(p, list) and len(p) == 3 and all(isinstance(v, str) for v in p)
                                                for p in pairs),
@@ -154,7 +187,11 @@ def _write_status(domain, status):
 
 
 def save_review(case_id, *, decision=None, report_status=None):
-    """Save the owner's review in SQLite, then mirror it into the suspect's status in the state file."""
+    """Save the owner's review in SQLite, then mirror it into the suspect's status in the state file.
+
+    A Fake / Genuine decision is also passed to the FORGE engine (actions.confirm -> prarthana.alert.confirm):
+    it learns from the answer, tracks confirmed fakes for relaunches and prepares the Safe Browsing report.
+    Returns a short note about the engine step ('' when there was nothing to do)."""
     updates = {}
     if decision is not None:
         if decision not in DECISIONS:
@@ -165,7 +202,7 @@ def save_review(case_id, *, decision=None, report_status=None):
             raise ValueError('Invalid report status')
         updates['report_status'] = report_status
     if not updates:
-        return
+        return ''
     conn = connect()
     try:
         with conn:
@@ -176,9 +213,22 @@ def save_review(case_id, *, decision=None, report_status=None):
             row = conn.execute('SELECT * FROM reviews WHERE case_id=?', (case_id,)).fetchone()
     finally:
         conn.close()
+    note = ''
+    if decision in ('fake', 'genuine'):
+        import actions
+        problem = actions.engine_error()
+        if problem:
+            note = f'Saved, but the FORGE engine is unavailable ({problem}).'
+        else:
+            try:
+                actions.confirm(row['domain'], decision == 'fake')
+                note = 'FORGE engine updated' + (' and Safe Browsing report prepared.' if decision == 'fake' else '.')
+            except Exception as exc:  # the decision itself is saved; report the engine problem
+                note = f'Saved, but the FORGE engine step failed ({type(exc).__name__}: {exc}).'
     status = pipeline_status(row['decision'], row['report_status'])
     if status:
         _write_status(row['domain'], status)
+    return note
 
 
 # --- Workspace profile (single brand owner, no accounts) -------------------

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import streamlit as st
 
+import actions
 import gemini
 import storage
 import ui
@@ -253,6 +254,85 @@ def decision_row():
         ui.note(f"Last saved (UTC): {case['updated_at']}")
 
 
+SAFE_BROWSING_FORM = 'https://safebrowsing.google.com/safebrowsing/report_phish/'
+
+
+def run_action(label, fn, *args):
+    """Run an engine action, keep its result for the next run, show errors."""
+    try:
+        with st.spinner(f'{label}…'):
+            result = fn(*args)
+    except (ValueError, OSError) as exc:
+        st.error(str(exc))
+        return
+    except Exception as exc:  # a failure inside the engine: show it, keep the page working
+        st.error(f'{label} failed ({type(exc).__name__}: {exc})')
+        return
+    st.session_state['action_result'] = (case['domain'], label, result)
+    st.rerun()
+
+
+def engine_actions():
+    """After the owner says Fake: signed evidence PDF, abuse report and Safe Browsing pack from the FORGE engine."""
+    if case['decision'] != 'fake':
+        return
+    ui.section('Act on this fake')
+    problem = actions.engine_error()
+    if problem:
+        st.warning(f'The FORGE engine is not available here ({problem}). Install the repository requirements '
+                   '(`pip install -r requirements.txt` at the repository root) to make evidence PDFs and reports.')
+        return
+    done = st.session_state.pop('action_result', None)
+    if done and done[0] == case['domain']:
+        label, result = done[1], done[2]
+        if label == 'Sending abuse report':
+            where = (f"saved as {Path(result['how'][4:]).name} in output/" if result['how'].startswith('eml:')
+                     else f"sent by {result['how']}")
+            st.success(f"Abuse report {where}" + (f" (demo mode: the real contact would be "
+                                                    f"{result['abuse_email'] or 'the registrar'})" if result['demo'] else ''))
+        else:
+            st.success(f"Signed evidence PDF created · {Path(result['pdf_path']).name}")
+    status = case['pipeline_status']
+    pdf = ui.evidence_path(case['pdf_path']) if case.get('pdf_path') else None
+    a, b, c = st.columns(3, gap='medium')
+    with a:
+        st.markdown('<span class="fx-label">Evidence PDF</span>', unsafe_allow_html=True)
+        if pdf and pdf.is_file():
+            ok = actions.verify(pdf)
+            st.markdown(f'<span class="fx-tag{" solid" if ok else ""}">'
+                        f'{"Signed · verified" if ok else "Changed or unsigned"}</span>', unsafe_allow_html=True)
+            st.download_button('Download PDF', pdf.read_bytes(), file_name=pdf.name, mime='application/pdf',
+                               key=f"pdf_{case['case_id']}", use_container_width=True)
+        if st.button('Create signed PDF' if not (pdf and pdf.is_file()) else 'Re-create PDF',
+                     key=f"mkpdf_{case['case_id']}", use_container_width=True):
+            run_action('Creating evidence PDF', actions.evidence_pdf, case['domain'])
+    with b:
+        st.markdown('<span class="fx-label">Abuse report</span>', unsafe_allow_html=True)
+        if status == 'reported' or case['report_status'] in ('sent', 'resolved'):
+            st.markdown('<span class="fx-tag solid">Reported</span>', unsafe_allow_html=True)
+        elif st.button('Send abuse report', key=f"abuse_{case['case_id']}", type='primary', use_container_width=True):
+            run_action('Sending abuse report', send_report)
+        ui.note('Demo mode: goes to GMAIL_ADDRESS or an .eml file, not the registrar (DEMO_MODE=off to send).'
+                if actions.demo_mode() else 'Live mode: sent to the registrar\'s abuse contact.')
+    with c:
+        st.markdown('<span class="fx-label">Google Safe Browsing</span>', unsafe_allow_html=True)
+        pack = actions.safe_browsing_path(case['domain'])
+        if pack:
+            st.link_button('Open the report form', SAFE_BROWSING_FORM, use_container_width=True)
+            ui.note('Paste the URL and details below; Google needs a person to submit it.')
+        else:
+            ui.note('Prepared by the engine when the case is marked Fake.')
+    if pack:
+        with st.expander('Safe Browsing report text'):
+            st.code(pack.read_text(encoding='utf-8'), language=None)
+
+
+def send_report():
+    result = actions.abuse_report(case['domain'])
+    storage.save_review(case['case_id'], report_status='sent')
+    return result
+
+
 def case_file():
     st.markdown(f'<div class="fx-folder-tab">FILE&nbsp;&nbsp;&nbsp;{ui.file_number(case)}</div>', unsafe_allow_html=True)
     with st.container(key='folder'):
@@ -264,6 +344,7 @@ def case_file():
         {'Overview': overview, 'Images': images, 'Domain': domain, 'Phrases': phrases_tab,
          'Verdict': verdict_tab}[st.session_state['evidence_tab']]()
         decision_row()
+        engine_actions()
 
 
 left, right = st.columns([1.3, 3.4], gap='large')

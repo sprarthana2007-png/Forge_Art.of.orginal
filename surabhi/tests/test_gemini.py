@@ -45,7 +45,7 @@ class GeminiTests(unittest.TestCase):
         self.assertEqual(inv['suspect']['domain'], 'northstar-sale.example')
         self.assertEqual(inv['suspect']['domain_age_days'], self.case['domain_age_days'])
         self.assertTrue(inv['automated_checks']['logo_copied'])
-        self.assertEqual(inv['automated_checks']['exact_image_copies'], 5)
+        self.assertEqual(inv['automated_checks']['exact_image_copies'], 4)  # product photos; the logo is logo_copied
         self.assertTrue(inv['automated_checks']['image_matches'])
         json.dumps(inv)  # must be serialisable
 

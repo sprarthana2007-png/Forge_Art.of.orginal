@@ -21,6 +21,7 @@ import argparse
 import io
 import json
 import re
+import sys
 import urllib.request
 from datetime import date
 from pathlib import Path
@@ -29,7 +30,9 @@ from urllib.parse import quote, urlparse
 from PIL import Image, ImageOps
 from playwright.sync_api import sync_playwright
 
-from phrases import find_phrases
+sys.path.append(str(Path(__file__).resolve().parent.parent))  # shared schemas.py at the repo root
+
+from phrases import find_phrases  # noqa: E402
 from schemas import (BrandDNA, ForgeState, Suspect, file_sha256, hash_contact, is_similar, mask_contact, photo_phash,
                      state_from_dict, state_to_dict)
 
@@ -206,19 +209,22 @@ def main():
             suspect.screenshot_path = rel(shot)
             images = fingerprint_images(context, load)
             suspect.image_sha256s = sorted({i['sha256'] for i in images.values()})
-            pairs, exact, similar = [], set(), set()
+            pairs, exact, similar = [], [], []
             for o_url, s_url, kind in match(official_images, images):
                 o_png = evidence / 'matches' / f'official_{slug(o_url)}.png'
                 s_png = evidence / 'matches' / f'{slug(suspect.domain)}_{slug(s_url)}.png'
                 o_png.write_bytes(official_images[o_url]['png'])
                 s_png.write_bytes(images[s_url]['png'])
                 pairs.append([rel(o_png), rel(s_png), kind])
-                (exact if kind.startswith('exact') else similar).add(
-                    official_images[o_url]['sha256'] if kind.startswith('exact') else official_images[o_url]['phash'])
-                suspect.logo_match = suspect.logo_match or official_images[o_url]['is_logo']
+                if official_images[o_url]['is_logo']:  # as in the FORGE engine: logos count as logo_match only
+                    suspect.logo_match = True
+                elif kind.startswith('exact'):        # same entry format as prarthana/investigator.compare_images
+                    exact.append({'url': s_url, 'sha256': images[s_url]['sha256'], 'path': rel(s_png)})
+                else:
+                    similar.append({'url': s_url, 'phash': images[s_url]['phash'], 'path': rel(s_png)})
             suspect.matched_image_pairs = pairs
-            suspect.image_exact_matches = sorted(exact)
-            suspect.image_similar_matches = sorted(similar)
+            suspect.image_exact_matches = exact
+            suspect.image_similar_matches = similar
             found = contacts(suspect.page_text)
             suspect.contact_hashes = sorted({*suspect.contact_hashes, *map(hash_contact, found)})
             suspect.contacts_masked = sorted({*suspect.contacts_masked, *map(mask_contact, found)})

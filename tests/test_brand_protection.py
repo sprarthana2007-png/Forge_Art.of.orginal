@@ -140,7 +140,10 @@ def test_report_converts_to_shared_suspect(northstar, site):
                                save=False)
     s = protection.to_suspect(r)
     assert isinstance(s, schemas.Suspect)
-    assert s.label == "likely_fake" and s.logo_match and s.image_exact_matches and s.image_similar_matches
+    assert s.label == "likely_fake" and s.logo_match  # the copied logo, as the engine records it
+    assert s.image_exact_matches == []
+    assert [set(m) for m in s.image_similar_matches] == [{"url", "phash", "path"}]  # engine format
+    assert s.image_similar_matches[0]["url"].endswith("/p1.jpg")
     assert s.domain_age_days == 9 and s.ip == "6.6.6.6"
 
 
@@ -173,3 +176,12 @@ def test_build_brand_dna_falls_back_to_registry_when_site_is_down(northstar, mon
     assert dna.logo_sha256 == schemas.file_sha256(LOGO)
     with pytest.raises(RuntimeError, match="no brand is registered"):
         brand_dna.build_brand_dna("https://unknown-brand.com/")
+
+
+def test_investigator_uses_surabhi_scam_phrases():
+    from prarthana.investigator import _find_scam_phrase_fn, scam_phrases
+    from surabhi.scam_phrases import find_scam_phrases
+    assert _find_scam_phrase_fn() is find_scam_phrases
+    found = scam_phrases("Payment by UPI only. Offer ends in 09:59! 90% off. No returns.")
+    assert {"UPI only", "Countdown pressure", "Huge discount", "No returns"} <= set(found)
+    assert scam_phrases("Free shipping on orders above Rs 999.") == []

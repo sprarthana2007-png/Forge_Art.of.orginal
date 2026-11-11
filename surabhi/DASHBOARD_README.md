@@ -15,7 +15,7 @@ Install Python 3.10 or newer and open a terminal in this `surabhi` folder.
 python -m venv .venv
 .venv\Scripts\Activate.ps1          # Windows PowerShell
 source .venv/bin/activate           # macOS / Linux
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -r ../requirements.txt   # dashboard + FORGE engine
 python -m streamlit run app.py
 ```
 
@@ -25,7 +25,9 @@ Open the local URL printed in the terminal, usually http://localhost:8501.
 
 | File | Responsibility |
 | --- | --- |
-| `schemas.py` | The team's shared schemas and hashing helpers (`BrandDNA`, `Suspect`, `ForgeState`) |
+| `../schemas.py` | The team's shared schemas and hashing helpers (`BrandDNA`, `Suspect`, `ForgeState`), at the repository root |
+| `actions.py` | Calls the FORGE engine: Fake / Genuine (`confirm`), signed evidence PDF, abuse report, PDF verification |
+| `views/brand_protection.py` | Brand DNA + NameNet page (see README.md) |
 | `forge_state.json` | Demo `ForgeState`: the Northstar brand and four suspects |
 | `app.py` | Entry point and page list |
 | `views/cases.py` | Case file cards, counters and a summary table |
@@ -55,6 +57,24 @@ Use the menu at the bottom of the screen to move between pages.
 5. Open **Reports**, select the case, choose **Drafted**, and save.
 
 The brand, sites, evidence and scores in the demo are synthetic.
+
+## Using the FORGE engine's results
+
+The dashboard reads the FORGE engine's results (`cache/state.json` at the repository root) as soon as the
+engine has run, and the demo data until then. The line under each page title says which one you are looking at.
+
+```bash
+cd ..                                   # repository root
+python main.py --store https://yourstore.com [--suspect https://fake.example]
+cd surabhi && python -m streamlit run app.py
+```
+
+On a case, **Fake** / **Genuine** calls the engine's `confirm()`: the answer trains the scorer
+(`cache/feedback.json`), a confirmed fake is remembered for relaunch tracking, and a Google Safe Browsing
+report is prepared. Under **Act on this fake** you can create the signed evidence PDF (shown as
+*Signed · verified* when its signature and fingerprint check out) and send the abuse report. Abuse reports run
+in demo mode unless `DEMO_MODE=off`: they go to `GMAIL_ADDRESS`, or are saved as an `.eml` in `output/`,
+never to the real registrar. The engine's campaign map is shown on the Cases page.
 
 ## Working with the shared schema
 

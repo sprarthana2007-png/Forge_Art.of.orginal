@@ -35,11 +35,26 @@
       "found_by": "manual",
       "screenshot_path": "evidence/suspect_northstar_sale_example.png",
       "image_exact_matches": [
-        "01a6e80f3dcd9cd833021cb2776a4f8b2caa78f96077a833e2f1d5f1e65ef18f",
-        "67b96f10fc8fd6cabb0f7e04d0cc2aebc63da159f92b4cdb1895a3d5583702cc",
-        "979abdacc06097a2109312948a04a4bd7b1432bfcdec7bef0eb426108d7be8ee",
-        "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
-        "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+        {
+          "url": "",
+          "sha256": "01a6e80f3dcd9cd833021cb2776a4f8b2caa78f96077a833e2f1d5f1e65ef18f",
+          "path": "evidence/matches/northstar_sale_jacket.png"
+        },
+        {
+          "url": "",
+          "sha256": "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c",
+          "path": "evidence/matches/northstar_sale_pack.png"
+        },
+        {
+          "url": "",
+          "sha256": "67b96f10fc8fd6cabb0f7e04d0cc2aebc63da159f92b4cdb1895a3d5583702cc",
+          "path": "evidence/matches/northstar_sale_shoe.png"
+        },
+        {
+          "url": "",
+          "sha256": "979abdacc06097a2109312948a04a4bd7b1432bfcdec7bef0eb426108d7be8ee",
+          "path": "evidence/matches/northstar_sale_flask.png"
+        }
       ],
       "image_similar_matches": [],
       "logo_match": true,
@@ -81,6 +96,12 @@
       "pdf_path": "",
       "abuse_email": "",
       "evidence_sha256": "",
+      "cloaking": false,
+      "cloaking_details": {},
+      "relaunch_of": "",
+      "relaunch_evidence": [],
+      "signals_fired": [],
+      "signal_weights": {},
       "page_title": "NORTHSTAR OFFICIAL SALE 90% OFF",
       "page_text": "⚡ MEGA CLEARANCE — FLAT 90% OFF ON ALL NORTHSTAR PRODUCTS — TODAY ONLY ⚡ NORTHSTAROFFICIAL SALE Offer ends in 00:14:59 WAREHOUSE 90% OFFStock clearance. Only 37 pieces left. Prices will go back up after the timer ends. PAY BY UPI ONLYScan & pay · Instant confirmationCash on delivery and cards not accepted -90%Summit Shell Jacket₹12,999₹1,299Only 3 left!BUY NOW -90%Ridge 28L Pack₹6,499₹649Only 2 left!BUY NOW -89%Trail Runner GTX₹8,999₹999Only 5 left!BUY NOW -90%Thermal Flask 750₹1,799₹179Only 4 left!BUY NOW -92%Basecamp 2P Tent₹18,499₹1,499Only 1 left!BUY NOW ✔ 100% Original✔ Official Northstar Store✔ Delivery in 2 days✖ No returns on sale items © NORTHSTAR SALE · Contact: WhatsApp only",
       "matched_image_pairs": [
@@ -109,7 +130,8 @@
           "evidence/matches/northstar_sale_flask.png",
           "exact copy · SHA-256 match"
         ]
-      ]
+      ],
+      "verdict_score": -1
     },
     {
       "url": "https://northstar-outlet.example",
@@ -118,7 +140,11 @@
       "screenshot_path": "evidence/suspect_northstar_outlet_example.png",
       "image_exact_matches": [],
       "image_similar_matches": [
-        "e9a297b0dacdcc48"
+        {
+          "url": "",
+          "phash": "e9a297b0dacdcc48",
+          "path": "evidence/matches/northstar_outlet_jacket_outlet.png"
+        }
       ],
       "logo_match": false,
       "prices_found": {},
@@ -153,6 +179,12 @@
       "pdf_path": "",
       "abuse_email": "",
       "evidence_sha256": "",
+      "cloaking": false,
+      "cloaking_details": {},
+      "relaunch_of": "",
+      "relaunch_evidence": [],
+      "signals_fired": [],
+      "signal_weights": {},
       "page_title": "North Star Outlet — Branded outdoor wear at outlet prices",
       "page_text": "★North Star OutletBRANDED · SURPLUS · EXPORT JacketsFleeceAccessoriesClearanceSearch products… Outdoor jackets at outlet prices Surplus and export-overrun stock from leading outdoor brands. Limited sizes, new with tags. Up to 40% off retail. Shop jackets This week's arrivals Storm Shell Jacket — BlueExport surplus · sizes M, L₹12,999₹7,999-38% Grid Fleece HoodieBrushed fleece · all sizes₹3,499₹2,299-34% Trail CapQuick-dry · one size₹999₹649-35% Merino Hiking Socks (2)Cushioned · sizes 7–11₹1,199₹799-33% North Star Outlet sells genuine surplus stock. Brand names are property of their respective owners. Payments: cards, UPI, COD. Contact: +91 00000 00000 · outlet@northstar-outlet.example",
       "matched_image_pairs": [
@@ -161,7 +193,8 @@
           "evidence/matches/northstar_outlet_jacket_outlet.png",
           "near-duplicate · perceptual hash, mirrored"
         ]
-      ]
+      ],
+      "verdict_score": -1
     },
     {
       "url": "https://northstar-partner.example",
@@ -169,10 +202,21 @@
       "found_by": "manual",
       "screenshot_path": "evidence/suspect_northstar_partner_example.png",
       "image_exact_matches": [
-        "67b96f10fc8fd6cabb0f7e04d0cc2aebc63da159f92b4cdb1895a3d5583702cc",
-        "979abdacc06097a2109312948a04a4bd7b1432bfcdec7bef0eb426108d7be8ee",
-        "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
-        "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+        {
+          "url": "",
+          "sha256": "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c",
+          "path": "evidence/matches/northstar_partner_pack.png"
+        },
+        {
+          "url": "",
+          "sha256": "67b96f10fc8fd6cabb0f7e04d0cc2aebc63da159f92b4cdb1895a3d5583702cc",
+          "path": "evidence/matches/northstar_partner_shoe.png"
+        },
+        {
+          "url": "",
+          "sha256": "979abdacc06097a2109312948a04a4bd7b1432bfcdec7bef0eb426108d7be8ee",
+          "path": "evidence/matches/northstar_partner_flask.png"
+        }
       ],
       "image_similar_matches": [],
       "logo_match": true,
@@ -211,6 +255,12 @@
       "pdf_path": "",
       "abuse_email": "",
       "evidence_sha256": "",
+      "cloaking": false,
+      "cloaking_details": {},
+      "relaunch_of": "",
+      "relaunch_evidence": [],
+      "signals_fired": [],
+      "signal_weights": {},
       "page_title": "Peak & Pine Outfitters — Northstar retail partner",
       "page_text": "Peak & Pine Outfitters BrandsHikingCampingVisit us Northstar retail partner Your neighbourhood outfitter in Pune, since 2011. We stock Northstar packs, footwear and camp gear alongside other independent brands. Try before you buy at our Baner store, or order online with free fitting advice. SHOP NORTHSTAR AT PEAK & PINE Northstar at Peak & Pine NORTHSTARRidge 28L Pack₹6,499 NORTHSTARTrail Runner GTX₹8,999 NORTHSTARThermal Flask 750₹1,799 NORTHSTARBasecamp 2P Tent₹18,499 Visit the storeShop 4, Baner Road, Pune 411045Open daily 10:00–20:30 PaymentsCards, UPI, net banking, cash on deliveryGST invoice with every order Talk to us+91 00000 00000 · hello@northstar-partner.example7-day returns on unused items",
       "matched_image_pairs": [
@@ -234,7 +284,8 @@
           "evidence/matches/northstar_partner_flask.png",
           "exact copy · SHA-256 match"
         ]
-      ]
+      ],
+      "verdict_score": -1
     },
     {
       "url": "https://northstar-rewards.example/claim",
@@ -242,8 +293,11 @@
       "found_by": "manual",
       "screenshot_path": "evidence/suspect_northstar_rewards_example.png",
       "image_exact_matches": [
-        "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
-        "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+        {
+          "url": "",
+          "sha256": "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c",
+          "path": "evidence/matches/northstar_rewards_pack.png"
+        }
       ],
       "image_similar_matches": [],
       "logo_match": true,
@@ -279,6 +333,12 @@
       "pdf_path": "",
       "abuse_email": "",
       "evidence_sha256": "",
+      "cloaking": false,
+      "cloaking_details": {},
+      "relaunch_of": "",
+      "relaunch_evidence": [],
+      "signals_fired": [],
+      "signal_weights": {},
       "page_title": "🎉 Northstar Anniversary Rewards — You are a winner!",
       "page_text": "⚠ ONLY 3 PRIZES LEFT · Your reward is reserved for 04:59 minutes NORTHSTAR28TH ANNIVERSARY REWARDS Congratulations! You won a free Northstar backpack Ridge 28L PackWorth ₹6,499FREE — 100% OFF To claim, pay a small ₹49 shipping & insurance fee by UPI. Unclaimed prizes go to the next winner. CLAIM MY PRIZE NOW → Hurry! Offer expires in 04:59 Payment accepted only through UPI. Fee is non-refundable. 🎁 Rahul from Delhi just claimed a tent🎁 Priya from Mumbai just claimed a jacket🎁 Arjun from Pune just claimed a pack",
       "matched_image_pairs": [
@@ -292,7 +352,8 @@
           "evidence/matches/northstar_rewards_pack.png",
           "exact copy · SHA-256 match"
         ]
-      ]
+      ],
+      "verdict_score": -1
     }
   ],
   "seen_domains": [
@@ -310,5 +371,7 @@
   "round_new": [],
   "pending_hashes": [],
   "handled_campaigns": [],
-  "alerted": []
+  "alerted": [],
+  "cloak_queue": [],
+  "signal_weights": {}
 }

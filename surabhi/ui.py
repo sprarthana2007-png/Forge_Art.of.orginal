@@ -2,7 +2,7 @@
 import base64
 import io
 import sqlite3
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from html import escape
 from pathlib import Path
 
@@ -313,6 +313,7 @@ def appearance_control(container=st):
 def base(title, layout='wide'):
     """Page config and styling. Every page calls this first (via shell or setup)."""
     st.set_page_config(page_title=f'{title} — FORGE', page_icon='◼', layout=layout)
+    storage.refresh_state_file()
     try:
         profile = storage.load_profile()
     except (OSError, sqlite3.Error):
@@ -362,16 +363,31 @@ def load_cases_or_stop():
     try:
         cases = storage.load_cases()
     except FileNotFoundError:
-        st.info(f'No state file yet at {storage.STATE_FILE}. Run `python analyze.py` (demo) or point '
-                'FORGE_STATE_FILE at the team pipeline\'s ForgeState JSON.')
+        st.info(f'No state file yet at {storage.STATE_FILE}. Run the FORGE engine (`python main.py --store <url>`) '
+                'or the demo (`python analyze.py`), or point FORGE_STATE_FILE at a ForgeState JSON file.')
         st.stop()
     except (ValueError, OSError, sqlite3.Error) as exc:
         st.error(f'Unable to load cases: {exc}')
         st.stop()
     if not cases:
-        st.info('No suspects to review yet. Run the pipeline or `python analyze.py` to fill forge_state.json.')
+        st.info('No suspects to review yet. Run the FORGE engine (`python main.py --store <your store URL>` '
+                'from the repository root) or the demo (`python analyze.py`).')
         st.stop()
+    source_note()
     return cases
+
+
+def source_note():
+    """Say where the cases come from: the FORGE engine's results or the demo data."""
+    source = storage.state_source()
+    if source == 'engine':
+        when = datetime.fromtimestamp(storage.STATE_FILE.stat().st_mtime).strftime('%d %b %Y %H:%M')
+        note(f'Results from the FORGE engine · cache/state.json · updated {when}')
+    elif source == 'demo':
+        note('Demo data (synthetic Northstar cases). Run `python main.py --store <your store URL>` from the '
+             'repository root and this dashboard switches to the FORGE engine\'s results.')
+    else:
+        note(f'Results from {storage.STATE_FILE}')
 
 
 def setup(title, lede=None):
@@ -461,9 +477,13 @@ def summary(cases):
 # --- Images ---------------------------------------------------------------
 
 def evidence_path(filename):
-    # Local files only; relative paths are relative to the cases JSON file.
+    # Local files only; relative paths are relative to the cases JSON file, else to the repository root
+    # (where the FORGE engine writes output/).
     path = Path(filename)
-    return path if path.is_absolute() else storage.STATE_FILE.parent / path
+    if path.is_absolute():
+        return path
+    beside = storage.STATE_FILE.parent / path
+    return beside if beside.exists() or not (storage.REPO / path).exists() else storage.REPO / path
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -527,11 +547,11 @@ def verdict_card(saved):
 
 def persist(case_id, **fields):
     try:
-        storage.save_review(case_id, **fields)
+        note = storage.save_review(case_id, **fields)
     except (sqlite3.Error, OSError, ValueError) as exc:
         st.error(f'Could not save: {exc}')
         return
-    st.session_state['save_notice'] = 'Saved successfully.'
+    st.session_state['save_notice'] = f'Saved successfully. {note}'.strip()
     st.rerun()
 
 

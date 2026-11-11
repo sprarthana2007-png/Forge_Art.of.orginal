@@ -10,10 +10,11 @@ from pathlib import Path
 
 import streamlit as st
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.append(str(REPO))
 
+import actions  # noqa: E402
 import ui  # noqa: E402
 from surabhi import brand_dna, name_net, protection, store  # noqa: E402
 
@@ -187,6 +188,17 @@ def show_report(r):
     ui.section('Why')
     for reason in risk['reasons']:
         st.markdown(f'- {escape(reason)}')
+    if risk['level'] not in ('official', 'none'):
+        if st.button('Add to case files', key=f"bp_case_{r.get('id')}",
+                     help='Review it on the Evidence page: mark it Fake, create the signed PDF, send the abuse report.'):
+            try:
+                brand = store.get_brand(conn, r['brand']['id'])
+                domain = actions.add_suspect(protection.to_suspect(r), brand_dna.to_brand_dna(brand) if brand else None)
+            except (ValueError, OSError) as exc:
+                st.error(f'Could not add the case: {exc}')
+            else:
+                st.session_state['save_notice'] = f'{domain} added to the case files.'
+                st.rerun()
 
 
 shown = next((i for i in investigations if i['id'] == st.session_state.get('bp_report')), None)

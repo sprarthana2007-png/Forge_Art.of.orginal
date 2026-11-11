@@ -1,5 +1,7 @@
 from html import escape
 import streamlit as st
+import streamlit.components.v1 as components
+import actions
 import storage
 import ui
 
@@ -45,3 +47,9 @@ if st.session_state.pop('_go_evidence', False):
 
 ui.section('All cases at a glance', 2)
 ui.summary(cases)
+
+graph = actions.OUTPUT / 'campaign_graph.html'
+if storage.state_source() == 'engine' and graph.is_file():
+    ui.section('Campaign map', 3)
+    ui.note('Sites linked by shared images, contacts or servers (from the FORGE engine). Drag to explore.')
+    components.html(graph.read_text(encoding='utf-8'), height=620, scrolling=True)

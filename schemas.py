@@ -66,6 +66,9 @@ class BrandDNA:
     # added by prarthana (optional extras)
     logo_phash: str = ""
     favicon_phash: str = ""
+    # added by surabhi (dashboard extras)
+    screenshot_path: str = ""                  # screenshot of the official store, shown beside each suspect
+    domain_age_days: Optional[int] = None      # age of the official domain, for comparison
 
 
 @dataclass
@@ -100,6 +103,10 @@ class Suspect:
     relaunch_evidence: list = field(default_factory=list)  # #16: why (same contact / image / IP)
     signals_fired: list = field(default_factory=list)      # #19: scorer signal keys that fired (photos, logo, ...)
     signal_weights: dict = field(default_factory=dict)     # #19: owner-feedback weights used when scoring
+    # added by surabhi (dashboard extras)
+    page_title: str = ""
+    page_text: str = ""                        # visible text excerpt, sent to Gemini and searched for phrases
+    matched_image_pairs: list = field(default_factory=list)  # [official_image_path, suspect_image_path, match_kind]
     verdict_score: int = -1    # the score the current verdict text was written for (re-written if it changes)
 
 

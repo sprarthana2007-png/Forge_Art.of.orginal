@@ -1,6 +1,6 @@
 """SQLite storage for Brand DNA and NameNet.
 
-Uses the same database file as the owner dashboard (forge-starter/surabhi/data/forge.db, or FORGE_DB_PATH)
+Uses the same database file as the owner dashboard (surabhi/data/forge.db, or FORGE_DB_PATH)
 and only adds its own tables, so the dashboard's `reviews` / `profile` / `verdicts` tables are untouched.
 FORGE_BRAND_DB overrides the location for this module alone (tests use it for a throw-away file).
 """
@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-DEFAULT_DB = REPO / "forge-starter" / "surabhi" / "data" / "forge.db"
+DEFAULT_DB = REPO / "surabhi" / "data" / "forge.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS bp_brands (

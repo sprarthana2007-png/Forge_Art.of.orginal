@@ -243,7 +243,7 @@ def compare_images(images, brands: list[dict] | None = None, conn: sqlite3.Conne
 def to_brand_dna(brand: dict) -> BrandDNA:
     """Registered fingerprints as the shared BrandDNA dataclass."""
     dna = BrandDNA(store_url=brand["official_url"], brand_name=brand["name"],
-                   allow_list=[brand["official_domain"]])
+                   allow_list=[brand["official_domain"]], verified_owner=True)  # registered by the owner
     images = brand.get("images", [])
     logo = next((i for i in images if i["kind"] == "logo"), None)
     if logo:
@@ -293,6 +293,7 @@ def build_brand_dna(url: str) -> BrandDNA:
         if sha not in crawled.photo_sha256s and sha != crawled.logo_sha256:
             crawled.photo_sha256s.append(sha)
             crawled.photo_phashes.append(ph)
+    crawled.verified_owner = True
     for d in reg.allow_list:
         if d not in crawled.allow_list:
             crawled.allow_list.append(d)

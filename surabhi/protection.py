@@ -150,15 +150,28 @@ def investigate(target: str, brand_id: int | None = None, images=(), check_netwo
 
 
 def to_suspect(report: dict) -> Suspect:
-    """The report as the shared schemas.Suspect (for the FORGE state file / dashboard cases)."""
-    dna = report["brand_dna"]
-    exact = [m["filename"] for r in dna["results"] for m in r.get("exact_matches", [])]
-    similar = [m["filename"] for r in dna["results"] for m in r.get("similar_matches", [])]
+    """The report as the shared schemas.Suspect (for the FORGE state file / dashboard cases).
+
+    Image matches use the engine's format (prarthana/investigator.compare_images): {url, sha256, path} for exact
+    copies, {url, phash, path} for look-alikes; a matched logo only sets logo_match, as in the engine."""
+    dna, brand_id = report["brand_dna"], (report.get("brand") or {}).get("id")
+    exact, similar, logo = [], [], False
+    for r in dna["results"]:
+        hits = [(m, "exact") for m in r.get("exact_matches", []) if m["brand_id"] == brand_id] + \
+               [(m, "similar") for m in r.get("similar_matches", []) if m["brand_id"] == brand_id]
+        if not hits:
+            continue
+        if any(m["kind"] == "logo" for m, _ in hits):
+            logo = True
+            continue
+        url = r.get("source") or r["name"]
+        if any(k == "exact" for _, k in hits):
+            exact.append({"url": url, "sha256": r["sha256"], "path": ""})
+        else:
+            similar.append({"url": url, "phash": r["phash"], "path": ""})
     name = report["name_net"]
     return Suspect(url=(report.get("website") or {}).get("final_url") or report["target"], domain=report["domain"],
-                   found_by="manual", image_exact_matches=exact, image_similar_matches=similar,
-                   logo_match=bool(dna.get("matches_for_brand", {}).get("logo_exact")
-                                   or dna.get("matches_for_brand", {}).get("logo_similar")),
+                   found_by="manual", image_exact_matches=exact, image_similar_matches=similar, logo_match=logo,
                    domain_age_days=name.get("domain_age_days"), score=report["risk"]["score"],
                    label=report["risk"]["label"], reasons=list(report["risk"]["reasons"]),
                    verdict=report["risk"]["summary"], ip=(name.get("dns", {}).get("addresses") or [None])[0])
