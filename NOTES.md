@@ -94,6 +94,17 @@
   including the scorer's reasons.
 - The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
 
+## #15 Google Safe Browsing report pack (`prarthana/alert.py`)
+- `confirm(suspect, True, dna=None)` writes `output/safe_browsing_<domain>.txt`: the form link
+  https://safebrowsing.google.com/safebrowsing/report_phish/, the URL to paste, an "additional details" text (why it
+  is phishing / brand impersonation, the evidence summary, the cloaking tip "open it on a phone with ?fbclid=1",
+  relaunch, masked contacts) and the signed PDF's `file://` path + SHA-256 fingerprint.
+  Without `dna`, the brand name / store URL come from `cache/state.json`.
+- **FORGE prepares it; the owner submits it.** Google's form needs a person and a reCAPTCHA, and takes text only
+  (no attachments), so the PDF link is for the owner's records.
+- `send_abuse_report()` refreshes the pack (final PDF path + fingerprint), mentions it in the abuse e-mail and
+  attaches the .txt. The PDF's action page lists it as next step "Safe Browsing".
+
 ## #16 Relaunch tracking (`prarthana/relaunch.py`)
 - History = suspects marked `confirmed` / `reported` in `cache/state.json` **plus** `cache/confirmed_fakes.json`
   (written by `confirm(yes)` and `send_abuse_report()`, so confirmations survive a `--fresh` run; it stores only

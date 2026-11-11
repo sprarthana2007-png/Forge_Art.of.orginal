@@ -23,14 +23,80 @@ FROM_RESEND = "FORGE <onboarding@resend.dev>"
 
 
 # ------------------------------------------------------------------ human-in-the-loop
-def confirm(suspect: Suspect, yes: bool) -> Suspect:
+SAFE_BROWSING_FORM = "https://safebrowsing.google.com/safebrowsing/report_phish/"
+
+
+def confirm(suspect: Suspect, yes: bool, dna: BrandDNA | None = None) -> Suspect:
     """Called by the dashboard's "Yes, it's fake" / "No" button.
-    A confirmed fake is remembered (cache/confirmed_fakes.json) so its relaunches are recognised later (#16)."""
+    A confirmed fake is remembered (cache/confirmed_fakes.json) so its relaunches are recognised later (#16),
+    and a ready-to-paste Google Safe Browsing report is prepared in output/ (#15)."""
     suspect.status = "confirmed" if yes else "not_fake"
     if yes:
         from prarthana.relaunch import remember
         remember(suspect)
+        try:
+            make_safe_browsing_pack(suspect, dna)
+        except Exception:
+            pass
     return suspect
+
+
+def make_safe_browsing_pack(s: Suspect, dna: BrandDNA | None = None) -> str:
+    """output/safe_browsing_<domain>.txt: everything the owner needs to report the site to Google Safe Browsing.
+    FORGE prepares it; the owner submits it (Google's form needs a person and a reCAPTCHA)."""
+    from prarthana.evidence_pdf import case_id
+    if dna is None:  # the dashboard may call confirm() without Brand DNA: use the one saved with the run
+        try:
+            import json
+            from prarthana.common import CACHE
+            from schemas import state_from_dict
+            dna = state_from_dict(json.loads((CACHE / "state.json").read_text())).brand_dna
+        except Exception:
+            dna = None
+    brand = (dna.brand_name if dna and dna.brand_name else "") or "our brand"
+    store = (dna.store_url if dna and dna.store_url else "") or "(official store URL)"
+    pts = [re.sub(r"^\+\d+:\s*", "", r) for r in s.reasons if r.startswith("+")]
+    details = [f"This site impersonates {brand}, a small Indian online brand (official store: {store}). It copies our "
+               f"store to trick shoppers into paying for products that are never delivered (phishing / brand "
+               f"impersonation). The brand owner has reviewed the evidence and confirmed it is fake."]
+    details.append(f"Evidence (FORGE risk score {s.score}/100):")
+    for p in pts[:8]:
+        line = p.replace("₹", "Rs. ")
+        if "(cloaking)" in line:  # tell the reviewer how to see the hidden page
+            line += " To see the scam page, open the URL on a phone with ?fbclid=1 added."
+        details.append(f"- {line}")
+    if getattr(s, "relaunch_of", "") and not any("relaunch of" in p for p in pts):
+        details.append(f"- It is a relaunch of {s.relaunch_of}, a fake of our store reported before.")
+    if s.contacts_masked:
+        details.append(f"- Payment / contact details on the site (masked): {', '.join(s.contacts_masked[:4])}")
+    pdf = Path(s.pdf_path) if s.pdf_path else None
+    lines = [
+        "GOOGLE SAFE BROWSING REPORT — phishing / brand impersonation",
+        f"Prepared by FORGE for {brand} · case {case_id(s)} · "
+        f"{dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        "",
+        "FORGE prepared this report; you submit it (Google's form needs a person and a reCAPTCHA).",
+        f"1. Open {SAFE_BROWSING_FORM}",
+        "2. Paste the URL below into \"URL\".",
+        "3. Paste the text under ADDITIONAL DETAILS into the details box, tick the reCAPTCHA and submit.",
+        "",
+        "URL",
+        "---",
+        s.url,
+        "",
+        "ADDITIONAL DETAILS",
+        "------------------",
+        *details,
+        "",
+        "SIGNED EVIDENCE PDF (for your records / the registrar; Google's form only takes text)",
+        "-------------------------------------------------------------------------------------",
+        (f"{pdf.resolve().as_uri()}" if pdf and pdf.exists() else "(evidence PDF not generated yet)"),
+        f"SHA-256 fingerprint: {s.evidence_sha256 or 'unsigned'}",
+    ]
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    path = OUTPUT / f"safe_browsing_{_safe_name(s.domain or s.url)}.txt"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return str(path)
 
 
 # ------------------------------------------------------------------ PDF
@@ -89,7 +155,10 @@ def send_email(to: str, subject: str, body: str, attachments: list, eml_name: st
     if html:
         msg.add_alternative(html, subtype="html")
     for f in files:
-        msg.add_attachment(f.read_bytes(), maintype="application", subtype="pdf", filename=f.name)
+        if f.suffix.lower() == ".pdf":
+            msg.add_attachment(f.read_bytes(), maintype="application", subtype="pdf", filename=f.name)
+        else:
+            msg.add_attachment(f.read_text(encoding="utf-8", errors="replace"), subtype="plain", filename=f.name)
     if env("GMAIL_APP_PASSWORD") and env("GMAIL_ADDRESS") and to:
         try:
             with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
@@ -235,7 +304,10 @@ def send_abuse_report(suspect: Suspect, dna: BrandDNA | None = None, state_log=N
             f"Evidence fingerprint: {suspect.evidence_sha256 or 'unsigned'}\n\n"
             "Please investigate and take the site down.\n\n- FORGE, on behalf of "
             f"{dna.brand_name}")
-    how = send_email(to, subject, body, [pdf], f"abuse_{_safe_name(suspect.domain)}.eml", state_log)
+    sb = make_safe_browsing_pack(suspect, dna)   # refresh with the final PDF path + fingerprint
+    body += (f"\n\nP.S. FORGE has also prepared a ready-to-paste Google Safe Browsing report for this site "
+             f"({Path(sb).name}, attached). The brand owner submits it at {SAFE_BROWSING_FORM}")
+    how = send_email(to, subject, body, [pdf, sb], f"abuse_{_safe_name(suspect.domain)}.eml", state_log)
     suspect.status = "reported"
     from prarthana.relaunch import remember
     remember(suspect)

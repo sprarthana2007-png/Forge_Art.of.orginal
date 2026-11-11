@@ -1049,7 +1049,10 @@ class Doc:
         yy = self.card(M, y0, CW, y0 - nb, "next steps for the brand owner")
         tips = [("Review", "Compare the screenshots and image pairs on page 2 with your own store."),
                 ("Confirm", "Press \"Yes, it's fake\" or \"Not fake\" in your FORGE dashboard."),
-                ("Report", "FORGE then e-mails this PDF to the registrar's abuse contact shown above."),
+                ("Report", "FORGE then e-mails this signed PDF to the registrar's abuse contact (page 4)."),
+                ("Safe Browsing", "FORGE prepared it, you submit it: paste output/safe_browsing_"
+                                  f"{re.sub(r'[^A-Za-z0-9]+', '_', s.domain or '').strip('_')[:60]}.txt into "
+                                  "safebrowsing.google.com/safebrowsing/report_phish/ (Chrome then warns shoppers)."),
                 ("Warn customers", "Post your official domain and payment details on your social channels."),
                 ("Watch", "Run FORGE with --watch to re-hunt every 6 hours for new copies.")]
         step = min(40, (yy - nb - 8) / len(tips))
@@ -1059,7 +1062,9 @@ class Doc:
                 self.rule(M + P, M + CW - P, ty + 4)
             self.text(M + P, ty - step / 2 - 4, f"{i + 1:02d}", 13, SERIF, ORANGE)
             self.text(M + P + 30, ty - step / 2 - 3, t, 9.6, SANS_M, INK)
-            self.text(M + P + 130, ty - step / 2 - 3, d, 8.6, SANS, MUTED)
+            dst = style(8.4, 10.6, MUTED, SANS)
+            dh = self.para_h(_t(d, True), CW - 2 * P - 130, dst)
+            self.para(_t(d, True), M + P + 130, ty - step / 2 + dh / 2 + 0.5, CW - 2 * P - 130, dst)
         # 17 signature — pyHanko draws the visible signature stamp into SIG_BOX after the PDF is generated
         y0 = BOTTOM + SIG_H
         self.card(M, y0, CW, SIG_H, "signature")
