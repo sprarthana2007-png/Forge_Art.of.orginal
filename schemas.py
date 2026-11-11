@@ -100,6 +100,7 @@ class Suspect:
     relaunch_evidence: list = field(default_factory=list)  # #16: why (same contact / image / IP)
     signals_fired: list = field(default_factory=list)      # #19: scorer signal keys that fired (photos, logo, ...)
     signal_weights: dict = field(default_factory=dict)     # #19: owner-feedback weights used when scoring
+    verdict_score: int = -1    # the score the current verdict text was written for (re-written if it changes)
 
 
 @dataclass

@@ -191,7 +191,11 @@ def node_score(st: ForgeState) -> dict:
 
 
 def node_verdict(st: ForgeState) -> dict:
-    gemini_verdict(_new(st), st.brand_dna, st.log)
+    # new suspects + older flagged ones whose score changed (e.g. re-weighted by #19), in ONE batched call
+    new = _new(st)
+    stale = [s for s in st.suspects if s not in new and s.label != "ignored" and s.verdict
+             and getattr(s, "verdict_score", -1) != s.score]
+    gemini_verdict(new + stale, st.brand_dna, st.log)
     return {"suspects": st.suspects, "next_step": "decide"}
 
 

@@ -65,5 +65,6 @@ def gemini_verdict(suspects: list, brand_dna: BrandDNA, state_log=None) -> dict:
     out = {}
     for s in suspects:
         s.verdict = got.get(s.url) or template_verdict(s, brand_dna)
+        s.verdict_score = s.score
         out[s.url] = s.verdict
     return out

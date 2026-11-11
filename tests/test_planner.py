@@ -55,3 +55,14 @@ def test_cloak_budget_skips_when_used_up(monkeypatch):
     s = Suspect(url="https://a.example/", domain="a.example", found_by="urlscan_hash")
     planner.node_investigate(st(suspects=[s], round_new=[s.url], cloak_queue=[s.url]))
     assert "time budget" in s.cloaking_details["visit3_status"]
+
+
+def test_verdict_rewritten_when_score_changes(monkeypatch):
+    import prarthana.planner as planner
+    seen = []
+    monkeypatch.setattr(planner, "gemini_verdict", lambda sus, dna, log: seen.extend(s.url for s in sus))
+    old_same = Suspect(url="same", label="likely_fake", score=80, verdict="v", verdict_score=80)
+    old_changed = Suspect(url="changed", label="likely_fake", score=95, verdict="v", verdict_score=90)
+    new = Suspect(url="new", label="suspicious", score=60)
+    planner.node_verdict(st(suspects=[old_same, old_changed, new], round_new=["new"]))
+    assert seen == ["new", "changed"]
