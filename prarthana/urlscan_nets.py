@@ -66,6 +66,9 @@ def urlscan_nets(dna: BrandDNA, seen_domains: set, state_log=None, extra_hashes:
                  only_hashes: bool = False) -> list:
     """Return NEW Suspects (domain not in seen_domains, not the brand / allow-list). Updates seen_domains."""
     out = []
+    if not env("URLSCAN_API_KEY"):
+        log(state_log, "urlscan: URLSCAN_API_KEY missing, skipping urlscan nets")
+        return out
     queries = build_queries(dna, extra_hashes)
     if only_hashes:
         queries = [(f"hash:{h}", "urlscan_hash") for h in extra_hashes or []]

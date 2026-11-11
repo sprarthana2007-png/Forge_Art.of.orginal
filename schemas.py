@@ -103,6 +103,12 @@ class ForgeState:
     round: int = 0
     next_step: str = ""
     log: list = field(default_factory=list)
+    # added by prarthana (planner bookkeeping)
+    manual_urls: list = field(default_factory=list)       # --suspect URLs to investigate directly
+    round_new: list = field(default_factory=list)         # URLs found in the current round
+    pending_hashes: list = field(default_factory=list)    # campaign image hashes to re-hunt with
+    handled_campaigns: list = field(default_factory=list)
+    alerted: list = field(default_factory=list)           # URLs already included in an owner alert
 
 
 # ---------------------------------------------------------------- (de)serialise
@@ -114,6 +120,11 @@ def state_to_dict(st: ForgeState) -> dict:
         "round": st.round,
         "next_step": st.next_step,
         "log": list(st.log),
+        "manual_urls": list(st.manual_urls),
+        "round_new": list(st.round_new),
+        "pending_hashes": list(st.pending_hashes),
+        "handled_campaigns": list(st.handled_campaigns),
+        "alerted": list(st.alerted),
     }
 
 
@@ -128,4 +139,9 @@ def state_from_dict(d: dict) -> ForgeState:
         round=d.get("round", 0),
         next_step=d.get("next_step", ""),
         log=list(d.get("log", [])),
+        manual_urls=list(d.get("manual_urls", [])),
+        round_new=list(d.get("round_new", [])),
+        pending_hashes=list(d.get("pending_hashes", [])),
+        handled_campaigns=list(d.get("handled_campaigns", [])),
+        alerted=list(d.get("alerted", [])),
     )

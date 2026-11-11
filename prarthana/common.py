@@ -8,8 +8,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
-CACHE = ROOT / "cache"
-OUTPUT = ROOT / "output"
+# FORGE_CACHE_DIR / FORGE_OUTPUT_DIR let tests use throw-away folders
+CACHE = Path(os.environ.get("FORGE_CACHE_DIR") or ROOT / "cache")
+OUTPUT = Path(os.environ.get("FORGE_OUTPUT_DIR") or ROOT / "output")
 
 
 def env(name: str, default: str = "") -> str:

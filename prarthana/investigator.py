@@ -243,6 +243,8 @@ def investigate(suspect: Suspect, dna: BrandDNA, state_log=None, use_cache: bool
     if cached:
         for k, v in cached.items():
             setattr(suspect, k, v)
+        if suspect.status == "new":
+            suspect.status = "investigated"
         log(state_log, f"investigate: cache hit {suspect.url}")
         return suspect
 
