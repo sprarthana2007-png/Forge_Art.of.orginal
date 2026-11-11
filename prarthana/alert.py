@@ -16,7 +16,7 @@ from pathlib import Path
 import requests
 
 from schemas import BrandDNA, Suspect
-from prarthana.common import OUTPUT, env, log, registrable
+from prarthana.common import OUTPUT, env, log, plural, registrable
 from prarthana.investigator import rdap
 
 FROM_RESEND = "FORGE <onboarding@resend.dev>"
@@ -153,12 +153,12 @@ def send_alert(suspects: list, dna: BrandDNA, state_log=None) -> str:
         return "none"
     pdfs = [make_evidence_pdf(s, dna) for s in flagged]
     lines = [f"- {s.url}  score {s.score}/100 ({s.label})" for s in flagged]
-    body = (f"Hello,\n\nFORGE found {len(flagged)} possible fakes of your store {dna.store_url}:\n\n"
+    body = (f"Hello,\n\nFORGE found {plural(len(flagged), "possible fake")} of your store {dna.store_url}:\n\n"
             + "\n".join(lines) +
             "\n\nEvidence PDFs are attached. Please confirm in your FORGE dashboard. "
             "Nothing is reported until you confirm.\n\n- FORGE")
     return send_email(env("GMAIL_ADDRESS"),
-                      f"{len(flagged)} possible fakes of your store. Please confirm in your FORGE dashboard.",
+                      f"{plural(len(flagged), 'possible fake')} of your store. Please confirm in your FORGE dashboard.",
                       body, pdfs, "alert_email.eml", state_log, html=_alert_html(flagged, dna))
 
 
