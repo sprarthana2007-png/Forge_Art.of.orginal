@@ -96,6 +96,7 @@ class Suspect:
     evidence_sha256: str = ""  # SHA-256 of the final signed evidence PDF ("evidence fingerprint")
     cloaking: bool = False     # #13: shows a different page to an Instagram-ad visitor than to a normal visitor
     cloaking_details: dict = field(default_factory=dict)  # check_cloaking() result (visits, differences, ...)
+    relaunch_of: str = ""      # #16: domain of an earlier confirmed/reported fake this site relaunches
 
 
 @dataclass

@@ -94,6 +94,23 @@
   including the scorer's reasons.
 - The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
 
+## #14 Campaign graph (`prarthana/campaign_graph.py`)
+- NetworkX graph. Nodes = the brand (sage) + every flagged suspect (orange = likely fake, light orange = suspicious;
+  ignored suspects and allow-listed domains are left out). Edges between suspects, each with plain-English
+  `reasons`: **same public IP**, **shared contact hash** (shown masked), **shared exact image SHA-256**. Like campaign
+  grouping, private/loopback IPs and the brand's own photos/logo never create an edge (every clone copies those).
+  Dashed "copies" edges link the brand to every suspect that uses its photos or logo.
+- **Exports (paths for the dashboard):**
+  - `output/campaign_graph.html`: interactive pyvis graph of the whole run, **self-contained** (vis.js inlined,
+    pyvis' Bootstrap CDN link removed, no network requests). Embed with
+    `<iframe src="output/campaign_graph.html" width="100%" height="580"></iframe>`. Hover = score / label /
+    status / campaign / relaunch; edge hover = the reasons.
+  - `output/campaign_graph.png`: static PNG of the whole run (matplotlib, bento palette).
+  - Per-suspect PNG `cache/graphs/<domain>.png` (that suspect ringed in ink), used in the evidence PDF.
+  Both run-wide files are written by the planner's alert step (`campaign_graph.export(...)`).
+- **Evidence PDF is now 5 pages:** new page 4 "campaign map": map card, campaign links (each link with its
+  reasons) + member table, and the registrar / hosting abuse cards moved here from the action page.
+
 ## #13 Cloaking check (`prarthana/cloaking.py`)
 - **What it catches:** scam stores that show a clean page (e.g. "under maintenance") to bots and reviewers, and
   the real scam page only to shoppers who arrive from an Instagram / Facebook ad. FORGE visits each suspect

@@ -197,7 +197,9 @@ def node_decide(st: ForgeState) -> dict:
 def node_alert(st: ForgeState) -> dict:
     todo = [s for s in st.suspects if s.label in ("likely_fake", "suspicious") and s.url not in st.alerted
             and s.status in ("new", "investigated")]
-    how = send_alert(todo, st.brand_dna, st.log) if todo else "none"
+    from prarthana.campaign_graph import export
+    export(st.suspects, st.brand_dna, state_log=st.log)   # output/campaign_graph.png + .html for the dashboard
+    how = send_alert(todo, st.brand_dna, st.log, peers=st.suspects) if todo else "none"
     log(st.log, f"alert: {len(todo)} suspects -> {how}")
     return {"alerted": st.alerted + [s.url for s in todo], "next_step": "done"}
 

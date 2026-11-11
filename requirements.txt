@@ -12,3 +12,6 @@ cryptography==50.0.1
 fonttools==4.68.0
 uharfbuzz==0.57.0
 numpy==2.5.3
+networkx==3.7
+matplotlib==3.11.2
+pyvis==0.3.2

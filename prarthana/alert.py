@@ -34,13 +34,13 @@ def _safe_name(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", s).strip("_")[:60]
 
 
-def make_evidence_pdf(s: Suspect, dna: BrandDNA, state_log=None) -> str:
-    """4-page evidence report (layout: prarthana/evidence_pdf.py), then made tamper-evident
+def make_evidence_pdf(s: Suspect, dna: BrandDNA, state_log=None, peers: list | None = None) -> str:
+    """5-page evidence report (layout: prarthana/evidence_pdf.py), then made tamper-evident
     (prarthana/signing.py): print-only permissions + pyHanko certification signature. The SHA-256 of the
     signed file is stored in s.evidence_sha256. Returns the PDF path."""
     from prarthana.evidence_pdf import SIG_BOX, build_evidence_pdf
     from prarthana.signing import sign_pdf
-    path = build_evidence_pdf(s, dna)
+    path = build_evidence_pdf(s, dna, peers=peers)
     try:
         s.evidence_sha256 = sign_pdf(path, box=SIG_BOX, state_log=state_log)
     except Exception as e:
@@ -164,13 +164,14 @@ def _alert_html(flagged: list, dna: BrandDNA) -> str:
 </table></td></tr></table></body></html>"""
 
 
-def send_alert(suspects: list, dna: BrandDNA, state_log=None) -> str:
-    """Email the brand owner about likely_fake/suspicious suspects, with evidence PDFs attached."""
+def send_alert(suspects: list, dna: BrandDNA, state_log=None, peers: list | None = None) -> str:
+    """Email the brand owner about likely_fake/suspicious suspects, with evidence PDFs attached.
+    `peers`: every suspect of the run, so each PDF's campaign map shows the sites linked to it."""
     flagged = [s for s in suspects if s.label in ("likely_fake", "suspicious")]
     if not flagged:
         log(state_log, "alert: nothing to report")
         return "none"
-    pdfs = [make_evidence_pdf(s, dna, state_log) for s in flagged]
+    pdfs = [make_evidence_pdf(s, dna, state_log, peers=peers or suspects) for s in flagged]
     lines = [f"- {s.url}  score {s.score}/100 ({s.label})\n  Evidence fingerprint: {s.evidence_sha256 or 'unsigned'}"
              for s in flagged]
     body = (f"Hello,\n\nFORGE found {plural(len(flagged), 'possible fake')} of your store {dna.store_url}:\n\n"

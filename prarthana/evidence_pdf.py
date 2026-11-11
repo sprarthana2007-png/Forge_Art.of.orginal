@@ -1,4 +1,4 @@
-"""Evidence PDF for one suspect — "bento" theme (A4, 4 pages: case file, evidence, cloaking check, action).
+"""Evidence PDF for one suspect — "bento" theme (A4, 5 pages: case file, evidence, cloaking check, campaign, action).
 
 Rounded cards on a grainy stone page, numbered across the report ("01 / VERDICT" ...). Fonts are embedded
 from prarthana/assets/fonts (Instrument Serif, JetBrains Mono, Inter Tight) with Times / Courier / Helvetica
@@ -716,6 +716,105 @@ class Doc:
         self.finish_page()
 
     # ------------------------------------------------------------------ PAGE 3 — action
+    # ------------------------------------------------------------------ abuse contacts (RDAP)
+    def abuse_cards(self, hh=112):
+        ct = self.contacts
+        bw = (CW - G) / 2
+        y0 = self.y
+        cards = [("registrar abuse", "rdap · domain", ct.get("registrar") or "Not found in RDAP",
+                  ct.get("registrar_abuse") or "no abuse e-mail published"),
+                 ("hosting abuse", "rdap · ip", ct.get("host") or "Not available",
+                  ct.get("host_abuse") or ("IP " + ct["ip"] if ct.get("ip") else "IP not resolved"))]
+        for i, (lab, src, name, mail) in enumerate(cards):
+            x = M + i * (bw + G)
+            yy = self.card(x, y0, bw, hh, lab)
+            self.text(x + bw - P, y0 - P - 6, src, 6.8, MONO, MUTED, right=True)
+            self.text(x + P, yy - 22, self.fit(name, bw - 2 * P, 19, SERIF), 19, SERIF, INK)
+            self.rule(x + P, x + bw - P, yy - 36)
+            self.text(x + P, yy - 54, self.fit(mail, bw - 2 * P, 8.6, MONO_M), 8.6, MONO_M, ORANGE)
+        self.y = y0 - hh - G
+
+    # ------------------------------------------------------------------ PAGE 4 — campaign map (#14)
+    def page_campaign(self, gmap: dict):
+        s, c = self.s, self.c
+        self.new_page()
+        gmap = gmap or {}
+        members = gmap.get("members") or [s.domain]
+        links = gmap.get("links") or []
+
+        # map card
+        from prarthana.campaign_graph import MAP_SIZE
+        iw = CW - 2 * P
+        ih = iw * MAP_SIZE[1] / MAP_SIZE[0]
+        hh = 30 + ih + 30
+        y0 = self.y
+        yy = self.card(M, y0, CW, hh, "campaign map")
+        self.text(M + CW - P, y0 - P - 6, s.campaign_id and f"campaign {s.campaign_id}" or "standalone suspect",
+                  6.8, MONO_M, ORANGE if s.campaign_id else MUTED, right=True)
+        png = gmap.get("png")
+        if png and Path(png).exists():
+            c.drawImage(png, M + P, yy - ih + 4, iw, ih, mask="auto")
+        else:
+            self.text(M + CW / 2, yy - ih / 2, "map unavailable", 9, MONO, MUTED, center=True)
+        ly = y0 - hh + 12
+        lx = M + P
+        for col, lab, ring in ((SAGE, "brand", False), (ORANGE, "likely fake", False), (ORANGE_2, "suspicious", False),
+                               (ORANGE, "this report", True)):
+            c.setFillColor(col)
+            if ring:
+                c.setStrokeColor(INK)
+                c.setLineWidth(1.6)
+            c.circle(lx + 4, ly + 3, 4, stroke=1 if ring else 0, fill=1)
+            self.text(lx + 12, ly, lab, 6.8, MONO, MUTED)
+            lx += 22 + self.width(lab, 6.8, MONO) + 8
+        self.text(M + CW - P, ly, "edges: same IP · shared contact · shared image   - - - copies brand", 6.6, MONO,
+                  MUTED, right=True)
+        self.y = y0 - hh - G
+
+        # links + members — stretches down to the abuse cards
+        y0 = self.y
+        bottom = BOTTOM + 112 + G
+        yy = self.card(M, y0, CW, y0 - bottom, "campaign links")
+        self.text(M + CW - P, y0 - P - 6, f"{plural(len(members), 'site')} in this group", 6.8, MONO, MUTED,
+                  right=True)
+        ny = yy - 2
+        if not links:
+            ny -= self.para(_t("No other flagged site shares an IP address, a contact or an image with this one "
+                               "(yet). FORGE re-checks every run and links new sites automatically."),
+                            M + P, ny, CW - 2 * P, style(12.5, 16, INK, SERIF)) + 8
+        for a, b, reasons in links[:6]:
+            self.rule(M + P, M + CW - P, ny)
+            self.text(M + P, ny - 13, self.fit(f"{a}  —  {b}", 230, 8.4, MONO_M), 8.4, MONO_M, INK)
+            self.text(M + P + 240, ny - 13, self.fit("; ".join(reasons), CW - 2 * P - 240, 8.2, SANS), 8.2, SANS, INK)
+            ny -= 20
+        if len(links) > 6:
+            self.text(M + P, ny - 12, f"+{len(links) - 6} more links (see output/campaign_graph.html)", 7.4, MONO,
+                      MUTED)
+            ny -= 18
+        nodes = gmap.get("nodes") or {}
+        if nodes and ny - 40 > bottom:
+            ny -= 10
+            for dx, lab in ((0, "member"), (250, "score"), (310, "label"), (400, "status")):
+                self.text(M + P + dx, ny - 4, lab, 6.6, MONO, MUTED)
+            ny -= 10
+            for dom in members:
+                if ny - 20 < bottom + 8:
+                    break
+                d = nodes.get(dom, {})
+                self.rule(M + P, M + CW - P, ny)
+                self.text(M + P, ny - 13, self.fit(dom + ("   ← this report" if dom == s.domain else ""), 240, 8.2,
+                                                   MONO_M), 8.2, MONO_M, INK)
+                self.text(M + P + 250, ny - 13, str(d.get("score", "")), 8.2, MONO, ORANGE)
+                self.text(M + P + 310, ny - 13, LABEL_TEXT.get(d.get("label"), d.get("label", "")), 8.2, SANS, INK)
+                self.text(M + P + 400, ny - 13, STATUS_TEXT.get(d.get("status"), d.get("status", "")), 8.2, SANS,
+                          INK)
+                ny -= 19
+        self.text(M + P, bottom + 11, "Interactive version for the dashboard: output/campaign_graph.html", 7, MONO,
+                  MUTED)
+        self.y = bottom
+        self.abuse_cards()
+        self.finish_page()
+
     # ------------------------------------------------------------------ PAGE 3 — cloaking check (#13)
     @property
     def cloak(self) -> dict:
@@ -919,23 +1018,6 @@ class Doc:
                       ORANGE if state == "now" else (INK if state == "done" else MUTED), right=True)
         self.y = y0 - hh - G
 
-        # 13 / 14 abuse contacts
-        hh = 112
-        bw = (CW - G) / 2
-        y0 = self.y
-        cards = [("registrar abuse", "rdap · domain", ct.get("registrar") or "Not found in RDAP",
-                  ct.get("registrar_abuse") or "no abuse e-mail published"),
-                 ("hosting abuse", "rdap · ip", ct.get("host") or "Not available",
-                  ct.get("host_abuse") or ("IP " + ct["ip"] if ct.get("ip") else "IP not resolved"))]
-        for i, (lab, src, name, mail) in enumerate(cards):
-            x = M + i * (bw + G)
-            yy = self.card(x, y0, bw, hh, lab)
-            self.text(x + bw - P, y0 - P - 6, src, 6.8, MONO, MUTED, right=True)
-            self.text(x + P, yy - 22, self.fit(name, bw - 2 * P, 19, SERIF), 19, SERIF, INK)
-            self.rule(x + P, x + bw - P, yy - 36)
-            self.text(x + P, yy - 54, self.fit(mail, bw - 2 * P, 8.6, MONO_M), 8.6, MONO_M, ORANGE)
-        self.y = y0 - hh - G
-
         # 15 report status — black card
         hh = 86
         y0 = self.y
@@ -976,7 +1058,7 @@ class Doc:
         self.finish_page()
 
 
-def _render(fileobj, s, dna, total, assets, contacts) -> int:
+def _render(fileobj, s, dna, total, assets, contacts, gmap=None) -> int:
     c = rl_canvas.Canvas(fileobj, pagesize=A4)
     c.setTitle(f"FORGE evidence report - {s.domain}")
     c.setAuthor("FORGE")
@@ -984,13 +1066,14 @@ def _render(fileobj, s, dna, total, assets, contacts) -> int:
     d.page_case_file()
     d.page_evidence(assets)
     d.page_cloaking()
+    d.page_campaign(gmap)
     d.page_action()
     pages = c.getPageNumber() - 1
     c.save()
     return pages
 
 
-def build_evidence_pdf(s: Suspect, dna: BrandDNA) -> str:
+def build_evidence_pdf(s: Suspect, dna: BrandDNA, peers: list | None = None) -> str:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     s.domain = s.domain or domain_of(s.url)
     path = OUTPUT / f"evidence_{re.sub(r'[^A-Za-z0-9]+', '_', s.domain or s.url).strip('_')[:60]}.pdf"
@@ -1002,7 +1085,12 @@ def build_evidence_pdf(s: Suspect, dna: BrandDNA) -> str:
         contacts = abuse_contacts(s)
     except Exception:
         contacts = {}
-    total = _render(io.BytesIO(), s, dna, 4, assets, contacts)  # pass 1: count pages
-    _render(str(path), s, dna, total, assets, contacts)
+    try:
+        from prarthana.campaign_graph import suspect_map
+        gmap = suspect_map(s, peers, dna)
+    except Exception:
+        gmap = {}
+    total = _render(io.BytesIO(), s, dna, 5, assets, contacts, gmap)  # pass 1: count pages
+    _render(str(path), s, dna, total, assets, contacts, gmap)
     s.pdf_path = str(path)
     return str(path)
