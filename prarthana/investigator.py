@@ -8,6 +8,7 @@ import datetime as dt
 import importlib
 import re
 import socket
+import warnings
 from dataclasses import asdict
 from urllib.parse import urljoin
 
@@ -17,6 +18,7 @@ from schemas import (BrandDNA, Suspect, file_sha256, photo_phash, is_similar,
                      hash_contact, mask_contact)
 from prarthana.common import (CACHE, cache_get, cache_set, domain_of, registrable, log, launch_chromium)
 
+warnings.filterwarnings("ignore", category=UserWarning, module="PIL")
 TIMEOUT_MS = 20_000
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36 FORGE-research"
 
@@ -254,7 +256,7 @@ def investigate(suspect: Suspect, dna: BrandDNA, state_log=None, use_cache: bool
     try:
         page = fetch_page(suspect.url, str(shot))
     except Exception as e:
-        log(state_log, f"investigate: could not load {suspect.url}: {type(e).__name__}: {str(e)[:120]}")
+        log(state_log, f"investigate: could not load {suspect.url}: {type(e).__name__}: {str(e).splitlines()[0][:120]}")
         return suspect
 
     suspect.screenshot_path = str(shot)

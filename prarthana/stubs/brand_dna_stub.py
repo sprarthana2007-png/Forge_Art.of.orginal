@@ -58,7 +58,10 @@ def build_brand_dna(url: str) -> BrandDNA:
             browser.close()
 
     dna = BrandDNA(store_url=url, allow_list=[domain_of(url)])
-    dna.brand_name = (site_name[0] if site_name else title.split("|")[0].split(" - ")[0]).strip()
+    name = (site_name[0] if site_name else title.split("|")[0].split(" - ")[0]).strip()
+    if not name or len(name.split()) > 4:  # long SEO titles are not brand names: fall back to the domain
+        name = domain_of(url).split(":")[0].split(".")[0].capitalize()
+    dna.brand_name = name
     logo_url = logo_srcs[0] if logo_srcs else None
     fav_url = fav[0] if fav else None
     for u, b in images.items():
