@@ -268,6 +268,18 @@ def _save_evidence_image(b: bytes, sha: str) -> str:
     return str(p)
 
 
+LINK_MIN_PX = 100  # images smaller than this on the short side (icons, UPI / card badges) never link two sites
+
+
+def _big_enough(b: bytes) -> bool:
+    try:
+        from io import BytesIO
+        from PIL import Image
+        return min(Image.open(BytesIO(b)).size) >= LINK_MIN_PX
+    except Exception:
+        return False
+
+
 def compare_images(images: dict, favicon_url: str, dna: BrandDNA):
     exact, similar, all_sha = [], [], []
     logo_match = False
@@ -276,7 +288,8 @@ def compare_images(images: dict, favicon_url: str, dna: BrandDNA):
     brand_marks_ph = [h for h in (getattr(dna, "logo_phash", ""), getattr(dna, "favicon_phash", "")) if h]
     for img_url, b in images.items():
         sha = file_sha256(b)
-        all_sha.append(sha)
+        if _big_enough(b):  # only distinctive images link sites (campaigns / relaunches); icons and badges don't
+            all_sha.append(sha)
         try:
             ph = photo_phash(b)
         except Exception:

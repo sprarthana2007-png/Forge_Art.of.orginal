@@ -74,6 +74,24 @@ Score: product photo copy/look-alike +30 · logo/favicon +20 · price ≥ 40% be
 domain < 30 days old +10 · cloaking (different page for an Instagram-ad shopper than for a bot) +10. Labels: ≥ 75 `likely_fake`, 50–74 `suspicious`, < 50 `ignored`. Allow-listed domains
 (and the brand's own) are always ignored.
 
+## Accuracy (small labelled test set)
+`python -m prarthana.evaluate` runs the full pipeline on **20 hand-made local pages** (10 fake clones with different
+mixes of clues, incl. a cloaking one and a relaunch one, and 10 legitimate pages: the real store, an allow-listed
+reseller, an unrelated shop with similar product names, a page that only mentions the brand, a review blog, an
+influencer post, …). Labels: `tests/eval/labels.json`; full report: `output/eval_report.md`
+(copy in `tests/eval/last_report.md`).
+
+| threshold | TP | FP | FN | TN | precision (95% CI) | recall (95% CI) |
+|---|---|---|---|---|---|---|
+| flagged for review (score ≥ 50) | 8 | 1 | 2 | 9 | 89% (56%–98%) | 80% (49%–94%) |
+| likely fake (score ≥ 75) | 3 | 0 | 7 | 10 | 100% (44%–100%) | 30% (11%–60%) |
+
+**Be careful with these numbers:** 20 synthetic pages built by the same team that wrote the scorer is a sanity /
+regression check, not a measured real-world accuracy; the confidence intervals are very wide. Missed: two
+deliberately hard fakes (look-alike photos only; product names + prices with own photos). False alarm: an influencer
+post showing the brand's photos and logo — which is why FORGE never reports anything without the owner's
+confirmation. The evaluation also found (and we fixed) a false "relaunch" link caused by a shared small logo.
+
 ## Cloaking check (#13)
 Scam sites often show a clean page to bots and the real scam page only to shoppers from an Instagram / Facebook ad.
 FORGE visits every suspect three ways (desktop **bot**, **Instagram-ad shopper** on an emulated Android phone with

@@ -94,7 +94,7 @@ def html_to_text(doc: str) -> str:
 
 def is_local(url: str) -> bool:
     host = (urlparse(url if "://" in url else "http://" + url).hostname or "").lower()
-    if host in ("localhost", "") or host.endswith(".local"):
+    if host in ("localhost", "") or host.endswith((".local", ".localhost")):
         return True
     try:
         a = ipaddress.ip_address(host)

@@ -94,6 +94,24 @@
   including the scorer's reasons.
 - The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
 
+## #12 Evaluation (`prarthana/evaluate.py`, `tests/eval/`)
+- `tests/eval/make_eval.py` generates 21 small local sites (`tests/eval/sites/`, shared images in `tests/eval/shared/`)
+  and `tests/eval/labels.json`: 10 fakes, 10 legitimate pages, plus `old-fake` (a confirmed fake used as relaunch
+  history). `tests/eval/server.py` serves each site on its own domain `http://<name>.localhost:<port>/` (Chromium
+  resolves `*.localhost` to 127.0.0.1), so the brand's store and the allow-listed reseller are recognised by domain;
+  the `fake-cloaking` site shows bots a maintenance page.
+- `python -m prarthana.evaluate` runs the real pipeline (Brand DNA → Investigator with cloaking check → relaunch
+  check → scorer), with a throw-away cache and **all API keys blanked** (no external calls), and writes
+  `output/eval_report.md` + `output/eval_results.json` (copy committed as `tests/eval/last_report.md`).
+- Result: flagged (≥ 50) precision 89% / recall 80%; likely fake (≥ 75) precision
+  100% / recall 30%. **n = 20, synthetic, written by us** — the report says so first.
+  Not exercised: young domain (one age injected), IP links (no DNS for `*.localhost`), cloaking visit 3, Gemini.
+- **Bug found by the evaluation and fixed:** a legitimate marketplace was marked as a relaunch of the confirmed fake
+  because both showed the same small 200×80 logo. Small images (< 100 px on the short side: icons, UPI / card
+  badges) no longer link sites (`LINK_MIN_PX` in `investigator.py`; `image_sha256s` now only holds larger images).
+  They still count for matching the brand's own photos / logo.
+- `tests/test_eval.py` runs it (~1 min) with a regression floor (precision ≥ 0.8, recall ≥ 0.7 at ≥ 50).
+
 ## WHOIS fallback for the domain age (`prarthana/investigator.py`)
 - Order: RDAP registration event → **python-whois** (`creation_date`, earliest if a list, 10 s timeout, cached in
   `cache/whois/`) → `None` with a log line saying both failed. Local test hostnames (`*.localhost`, IPs) skip both.

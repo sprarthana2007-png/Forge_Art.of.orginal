@@ -1,0 +1,116 @@
+{
+ "brand_store": "store",
+ "allow_list": [
+  "reseller"
+ ],
+ "history": [
+  {
+   "site": "old-fake",
+   "status": "confirmed"
+  }
+ ],
+ "pages": [
+  {
+   "site": "fake-full",
+   "label": "fake",
+   "description": "Classic clone: brand photos + logo, 70% off, its own UPI / WhatsApp."
+  },
+  {
+   "site": "fake-no-discount",
+   "label": "fake",
+   "description": "Clone at normal prices, other contacts."
+  },
+  {
+   "site": "fake-lookalike",
+   "label": "fake",
+   "description": "Re-encoded / resized brand photos (look-alikes), logo, 60% off."
+  },
+  {
+   "site": "fake-no-logo",
+   "label": "fake",
+   "description": "Brand photos under another name and logo, 50% off."
+  },
+  {
+   "site": "fake-cloaking",
+   "label": "fake",
+   "description": "Full clone that shows bots a maintenance page (cloaking).",
+   "cloaking": true
+  },
+  {
+   "site": "fake-relaunch",
+   "label": "fake",
+   "description": "Relaunch of old-fake: same UPI / WhatsApp and payment QR, brand photos, 50% off."
+  },
+  {
+   "site": "fake-young",
+   "label": "fake",
+   "description": "Brand photos + logo, no prices / contacts shown yet; domain 5 days old (injected).",
+   "domain_age_days": 5
+  },
+  {
+   "site": "fake-subtle",
+   "label": "fake",
+   "description": "Only look-alike photos + its own UPI, normal prices (hard case)."
+  },
+  {
+   "site": "fake-text-only",
+   "label": "fake",
+   "description": "Own photos but the brand's product names at 70% off + UPI (hard case)."
+  },
+  {
+   "site": "fake-logo-cheap",
+   "label": "fake",
+   "description": "Brand logo, own photos, 70% off, own UPI."
+  },
+  {
+   "site": "store",
+   "label": "legit",
+   "description": "The brand's real store."
+  },
+  {
+   "site": "reseller",
+   "label": "legit",
+   "description": "Approved reseller on the allow-list (brand photos + logo)."
+  },
+  {
+   "site": "unrelated-shop",
+   "label": "legit",
+   "description": "Unrelated shop with similar product names, own photos and prices."
+  },
+  {
+   "site": "brand-mention",
+   "label": "legit",
+   "description": "Blog post that only mentions the brand name."
+  },
+  {
+   "site": "review-blog",
+   "label": "legit",
+   "description": "Review blog using one brand photo with credit."
+  },
+  {
+   "site": "discount-shop",
+   "label": "legit",
+   "description": "Discount shop selling its own products under the same generic names, cheaply."
+  },
+  {
+   "site": "link-page",
+   "label": "legit",
+   "description": "The brand's own link-in-bio page (logo + official contacts)."
+  },
+  {
+   "site": "influencer",
+   "label": "legit",
+   "description": "Influencer post with the brand's photos + logo and her own e-mail (hard case)."
+  },
+  {
+   "site": "news-article",
+   "label": "legit",
+   "description": "News article showing the brand's logo."
+  },
+  {
+   "site": "crafts-market",
+   "label": "legit",
+   "description": "Marketplace of other artisans, own photos and contacts."
+  }
+ ]
+}
