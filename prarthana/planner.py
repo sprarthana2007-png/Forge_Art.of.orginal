@@ -177,7 +177,7 @@ def node_score(st: ForgeState) -> dict:
     hist = relaunch.load_history([s for s in st.suspects if s.url not in set(st.round_new)])
     relaunch.detect([s for s in new if not is_allowed(s.domain or domain_of(s.url), st.brand_dna)], hist,
                     st.brand_dna, st.log)
-    score_all(st.suspects, st.brand_dna)
+    score_all(st.suspects, st.brand_dna, weights=st.signal_weights or None)
     after = {s.campaign_id for s in st.suspects if s.campaign_id}
     fresh = sorted(after - set(st.handled_campaigns))
     hashes = []
@@ -263,6 +263,8 @@ def run_forge(store_url: str, suspects: list | None = None, fresh: bool = False)
         st.brand_dna = fn(store_url)
         st.seen_domains.add(domain_of(store_url))
     st.manual_urls = list(suspects or [])
+    from prarthana.learning import weights_for_run
+    st.signal_weights = weights_for_run(st.log)   # #19: tuned from the owner's past confirm() answers
     st.round, st.round_new, st.pending_hashes, st.next_step = 0, [], [], "hunt"
     result = build_graph().invoke(st, {"recursion_limit": 60})
     final = result if isinstance(result, ForgeState) else ForgeState(**result)

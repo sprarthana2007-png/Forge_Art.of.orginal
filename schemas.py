@@ -98,6 +98,8 @@ class Suspect:
     cloaking_details: dict = field(default_factory=dict)  # check_cloaking() result (visits, differences, ...)
     relaunch_of: str = ""      # #16: domain of an earlier confirmed/reported fake this site relaunches
     relaunch_evidence: list = field(default_factory=list)  # #16: why (same contact / image / IP)
+    signals_fired: list = field(default_factory=list)      # #19: scorer signal keys that fired (photos, logo, ...)
+    signal_weights: dict = field(default_factory=dict)     # #19: owner-feedback weights used when scoring
 
 
 @dataclass
@@ -115,6 +117,7 @@ class ForgeState:
     handled_campaigns: list = field(default_factory=list)
     alerted: list = field(default_factory=list)           # URLs already included in an owner alert
     cloak_queue: list = field(default_factory=list)       # URLs in the order the cloaking check should run
+    signal_weights: dict = field(default_factory=dict)    # #19: per-signal weights learned from owner answers
 
 
 # ---------------------------------------------------------------- (de)serialise
@@ -132,6 +135,7 @@ def state_to_dict(st: ForgeState) -> dict:
         "handled_campaigns": list(st.handled_campaigns),
         "alerted": list(st.alerted),
         "cloak_queue": list(st.cloak_queue),
+        "signal_weights": dict(st.signal_weights),
     }
 
 
@@ -152,4 +156,5 @@ def state_from_dict(d: dict) -> ForgeState:
         handled_campaigns=list(d.get("handled_campaigns", [])),
         alerted=list(d.get("alerted", [])),
         cloak_queue=list(d.get("cloak_queue", [])),
+        signal_weights=dict(d.get("signal_weights", {})),
     )

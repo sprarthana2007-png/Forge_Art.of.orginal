@@ -94,6 +94,20 @@
   including the scorer's reasons.
 - The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
 
+## #19 The planner learns from the owner's answers (`prarthana/learning.py`)
+- Every `confirm(suspect, yes/no)` appends to `cache/feedback.json`: URL, domain, answer (`fake` / `not_fake`),
+  the scorer signals that fired (`suspect.signals_fired`) and the score. The latest answer per URL wins. No contacts or
+  page content are stored.
+- At the start of every run the planner computes a trust multiplier per signal (saved in
+  `ForgeState.signal_weights` and logged, e.g. `learning: weights tuned from 4 owner answers: Unofficial
+  contacts x0.70`):
+  `weight = 1 + 0.05 × (#fake answers where it fired) − 0.10 × (#not-fake answers where it fired)`,
+  clamped to **0.5×–1.5×** the original points. The scorer uses `round(base × weight)` points per signal. Thresholds stay
+  75 / 50. **Decision:** "not fake" corrections count double, because a signal that keeps flagging legit shops
+  should lose trust quickly, while confirmations should not inflate scores quickly.
+- Shown on the PDF's action page ("weights tuned from your past answers": a chip per signal with its
+  multiplier and answer counts) and in page 1's signal maxima (e.g. "+11 / 11" when contacts is at ×0.70).
+
 ## #15 Google Safe Browsing report pack (`prarthana/alert.py`)
 - `confirm(suspect, True, dna=None)` writes `output/safe_browsing_<domain>.txt`: the form link
   https://safebrowsing.google.com/safebrowsing/report_phish/, the URL to paste, an "additional details" text (why it

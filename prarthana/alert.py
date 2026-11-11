@@ -31,6 +31,8 @@ def confirm(suspect: Suspect, yes: bool, dna: BrandDNA | None = None) -> Suspect
     A confirmed fake is remembered (cache/confirmed_fakes.json) so its relaunches are recognised later (#16),
     and a ready-to-paste Google Safe Browsing report is prepared in output/ (#15)."""
     suspect.status = "confirmed" if yes else "not_fake"
+    from prarthana.learning import record
+    record(suspect, yes)        # #19: the planner learns per-signal trust from these answers
     if yes:
         from prarthana.relaunch import remember
         remember(suspect)

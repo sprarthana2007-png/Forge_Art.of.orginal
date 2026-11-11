@@ -90,6 +90,9 @@ SIGNALS = [("Product photos", 30, "Brand product photos re-used (exact or look-a
            ("Cloaking", 10, "Different page for Instagram-ad shoppers than for bots"),
            ("Relaunch", 10, "Same contact / image / IP as a fake you already confirmed"),
            ("Scam phrases", 0, "Pressure / payment phrases (noted, no points)")]
+NAME_KEY = {"Product photos": "photos", "Logo / favicon": "logo", "Price undercut": "price",
+            "Unofficial contacts": "contacts", "Young domain": "young_domain", "Cloaking": "cloaking",
+            "Relaunch": "relaunch"}
 SHORT = {"Relaunch": "relaunch", "Cloaking": "cloaking", "Product photos": "photos", "Logo / favicon": "logo", "Price undercut": "price",
          "Unofficial contacts": "contacts", "Young domain": "domain", "Scam phrases": "phrases", "Note": "note"}
 
@@ -564,8 +567,11 @@ class Doc:
         for name, pts, _, col in rows:
             got.setdefault(name, (pts, col))
         step = (hb - 34) / len(SIGNALS)
+        sw = getattr(s, "signal_weights", None) or {}
         for i, (name, mx, desc) in enumerate(SIGNALS):
             ty = yy - i * step
+            if mx and NAME_KEY.get(name) in sw:   # #19: the weighted maximum actually in use
+                mx = int(round(mx * float(sw[NAME_KEY[name]])))
             hit = name in got
             colr = INK if hit else MUTED
             self.text(xs + P, ty - 7, name, 9, SANS_M, colr)
@@ -1004,7 +1010,7 @@ class Doc:
              else "Will be sent only after the owner confirms.", "done" if s.status == "reported" else "todo",
              "sent" if s.status == "reported" else "pending"),
         ]
-        sh = 33
+        sh = 29
         hh = 34 + len(steps) * sh
         y0 = self.y
         yy = self.card(M, y0, CW, hh, "timeline")
@@ -1041,6 +1047,33 @@ class Doc:
         msg = (f"Abuse report sent{(' to ' + s.abuse_email) if s.abuse_email else ''}." if s.status == "reported"
                else "Nothing is reported until the brand owner presses \"Yes, it's fake\" in the FORGE dashboard.")
         self.text(M + P, yy - 42, self.fit(msg, CW - 2 * P, 8.4, SANS), 8.4, SANS, BORDER)
+        self.y = y0 - hh - G
+
+        # weights tuned from the owner's past answers (#19)
+        from prarthana.learning import SIGNALS as LSIG, load_feedback
+        fb = load_feedback()
+        sw = getattr(s, "signal_weights", None) or {}
+        hh = 94
+        y0 = self.y
+        yy = self.card(M, y0, CW, hh, "weights tuned from your past answers")
+        self.text(M + CW - P, y0 - P - 6, f"{plural(len(fb), 'owner answer')} so far · range 0.5×–1.5×", 6.8,
+                  MONO, MUTED, right=True)
+        cx = M + P
+        for key, name in LSIG.items():
+            w = float(sw.get(key, 1.0))
+            n_f = sum(1 for x in fb if x.get("answer") == "fake" and key in (x.get("signals") or []))
+            n_n = sum(1 for x in fb if x.get("answer") == "not_fake" and key in (x.get("signals") or []))
+            lab = f"{SHORT.get(name, name)} ×{w:.2f}"
+            fill = ORANGE if w > 1 else (ORANGE_3 if w < 1 else BORDER)
+            pw = self.pill(cx, yy - 16, lab, fill=fill, color=INK, size=6.6, h=14)
+            if n_f or n_n:
+                self.text(cx + pw / 2, yy - 27, f"{n_f} fake · {n_n} not", 5.8, MONO, MUTED, center=True)
+            cx += pw + 5
+        msg = ("No answers yet: every signal is at its default weight. Each \"Yes, it's fake\" / \"Not fake\" "
+               "answer in the dashboard tunes them for the next run.") if not fb else (
+              "Signals that fired on sites you marked \"not fake\" lose trust (-0.10 per answer); signals on sites "
+              "you confirmed gain a little (+0.05). Points shown in this report already use these weights.")
+        self.para(_t(msg), M + P, yy - 36, CW - 2 * P, style(7.6, 10, MUTED, SANS))
         self.y = y0 - hh - G
 
         # 16 next steps — numbered list, stretches down to the signature card

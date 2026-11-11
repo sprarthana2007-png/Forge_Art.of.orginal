@@ -38,21 +38,37 @@ def label_for(score: int) -> str:
     return "ignored"
 
 
-def score_suspect(s: Suspect, dna: BrandDNA) -> Suspect:
+BASE_POINTS = {"photos": PTS_PHOTO, "logo": PTS_LOGO, "price": PTS_PRICE, "contacts": PTS_CONTACT,
+               "young_domain": PTS_YOUNG, "cloaking": PTS_CLOAK, "relaunch": PTS_RELAUNCH}
+
+
+def points(key: str, weights: dict | None = None) -> int:
+    """Points for a signal after the owner-feedback weight (#19); weight 1.0 = the original points."""
+    return int(round(BASE_POINTS[key] * float((weights or {}).get(key, 1.0))))
+
+
+def score_suspect(s: Suspect, dna: BrandDNA, weights: dict | None = None) -> Suspect:
+    """Rule-based score. `weights` (from prarthana.learning) scale each signal's points, 0.5x-1.5x."""
     s.domain = s.domain or domain_of(s.url)
-    score, reasons = 0, []
+    score, reasons, fired = 0, [], []
+    s.signal_weights = dict(weights or {})
     if is_allowed(s.domain, dna):
-        s.score, s.label = 0, "ignored"
+        s.score, s.label, s.signals_fired = 0, "ignored", []
         s.reasons = [f"{s.domain} is the brand's own store or on the allow-list, so it is never flagged."]
         return s
 
+    def add(key, text):
+        nonlocal score
+        p = points(key, weights)
+        score += p
+        fired.append(key)
+        reasons.append(f"+{p}: {text}")
+
     if s.image_exact_matches or s.image_similar_matches:
-        score += PTS_PHOTO
-        reasons.append(f"+{PTS_PHOTO}: uses the brand's product photos "
-                       f"({plural(len(s.image_exact_matches), 'exact copy')}, {plural(len(s.image_similar_matches), 'look-alike')}).")
+        add("photos", f"uses the brand's product photos ({plural(len(s.image_exact_matches), 'exact copy')}, "
+                      f"{plural(len(s.image_similar_matches), 'look-alike')}).")
     if s.logo_match:
-        score += PTS_LOGO
-        reasons.append(f"+{PTS_LOGO}: shows the brand's logo or favicon.")
+        add("logo", "shows the brand's logo or favicon.")
 
     cheap = []
     brand_prices = {k.lower(): v for k, v in (dna.prices or {}).items()}
@@ -61,34 +77,29 @@ def score_suspect(s: Suspect, dna: BrandDNA) -> Suspect:
         if bp and price and price <= bp * (1 - PRICE_DROP):
             cheap.append(f"{name} at ₹{price:,.0f} vs ₹{bp:,.0f} ({round(100 * (1 - price / bp))}% off)")
     if cheap:
-        score += PTS_PRICE
-        reasons.append(f"+{PTS_PRICE}: prices at least 40% below the real store: " + "; ".join(cheap) + ".")
+        add("price", "prices at least 40% below the real store: " + "; ".join(cheap) + ".")
 
     official = set(dna.official_contact_hashes or [])
     foreign = [h for h in s.contact_hashes or [] if h not in official]
     if foreign:
         idx = [i for i, h in enumerate(s.contact_hashes) if h not in official]
         shown = ", ".join(s.contacts_masked[i] for i in idx if i < len(s.contacts_masked))
-        score += PTS_CONTACT
-        reasons.append(f"+{PTS_CONTACT}: lists {plural(len(foreign), 'phone/UPI/email contact')} that "
-                       f"{'is' if len(foreign) == 1 else 'are'} not the brand's "
-                       f"official ones ({shown}).")
+        add("contacts", f"lists {plural(len(foreign), 'phone/UPI/email contact')} that "
+                        f"{'is' if len(foreign) == 1 else 'are'} not the brand's official ones ({shown}).")
     if s.domain_age_days is not None and s.domain_age_days < YOUNG_DAYS:
-        score += PTS_YOUNG
-        reasons.append(f"+{PTS_YOUNG}: domain registered only {plural(s.domain_age_days, 'day')} ago.")
+        add("young_domain", f"domain registered only {plural(s.domain_age_days, 'day')} ago.")
     if getattr(s, "cloaking", False):
-        score += PTS_CLOAK
         diffs = (getattr(s, "cloaking_details", None) or {}).get("differences") or []
-        reasons.append(f"+{PTS_CLOAK}: shows a different page to an Instagram-ad visitor than to a normal visitor "
-                       f"(cloaking)" + (f": {diffs[0].rstrip('.')}." if diffs else "."))
+        add("cloaking", "shows a different page to an Instagram-ad visitor than to a normal visitor (cloaking)"
+                        + (f": {diffs[0].rstrip('.')}." if diffs else "."))
     if getattr(s, "relaunch_of", ""):
-        score += PTS_RELAUNCH
         why = getattr(s, "relaunch_evidence", None) or []
-        reasons.append(f"+{PTS_RELAUNCH}: relaunch of a fake you already confirmed ({s.relaunch_of})"
-                       + (f": {'; '.join(why)}." if why else "."))
+        add("relaunch", f"relaunch of a fake you already confirmed ({s.relaunch_of})"
+                        + (f": {'; '.join(why)}." if why else "."))
     if s.scam_phrases:
         reasons.append("Note (no points): scam-style phrases found: " + ", ".join(map(str, s.scam_phrases)) + ".")
 
+    s.signals_fired = fired
     s.score = min(score, 100)
     s.label = label_for(s.score)
     s.reasons = reasons or ["No evidence of copying was found."]
@@ -164,7 +175,7 @@ def campaign_shared_image_hashes(suspects: list, campaign_id: str, dna: BrandDNA
     return sorted(shared)
 
 
-def score_all(suspects: list, dna: BrandDNA) -> list:
+def score_all(suspects: list, dna: BrandDNA, weights: dict | None = None) -> list:
     for s in suspects:
-        score_suspect(s, dna)
+        score_suspect(s, dna, weights)
     return group_campaigns(suspects, dna)
