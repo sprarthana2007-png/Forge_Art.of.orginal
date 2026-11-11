@@ -94,6 +94,20 @@
   including the scorer's reasons.
 - The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
 
+## #16 Relaunch tracking (`prarthana/relaunch.py`)
+- History = suspects marked `confirmed` / `reported` in `cache/state.json` **plus** `cache/confirmed_fakes.json`
+  (written by `confirm(yes)` and `send_abuse_report()`, so confirmations survive a `--fresh` run; it stores only
+  domain / IP / contact hashes + masked forms / image hashes, never raw contacts).
+- A new suspect is a **relaunch** when it shares a contact hash, an exact non-brand image SHA-256 or a public IP with
+  an old fake (brand photos and private IPs never count). Then `suspect.relaunch_of = <old domain>`,
+  `suspect.relaunch_evidence = [why]`, and the scorer adds **+10**: "relaunch of a fake you already confirmed
+  (<old domain>)".
+- **Planner:** hunt also searches urlscan for confirmed fakes' own (non-brand) image hashes. `prioritise` puts
+  suspects whose IP (known from urlscan before any visit) matches a confirmed fake first, for investigation and
+  for the cloaking check. Full detection (contacts / images / IP) runs right before scoring.
+- Shown as a "Relaunch of …" pill in the page-1 suspect card, a "Relaunch" signal row, an orange banner in the
+  alert e-mail (and a line in the plain-text version), and in the Gemini summary.
+
 ## #14 Campaign graph (`prarthana/campaign_graph.py`)
 - NetworkX graph. Nodes = the brand (sage) + every flagged suspect (orange = likely fake, light orange = suspicious;
   ignored suspects and allow-listed domains are left out). Edges between suspects, each with plain-English

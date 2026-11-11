@@ -11,7 +11,7 @@ import json
 from langgraph.graph import END, StateGraph
 
 from schemas import ForgeState, Suspect, state_from_dict, state_to_dict
-from prarthana.common import CACHE, domain_of, log
+from prarthana.common import CACHE, domain_of, log, plural
 from prarthana.teammate import get_build_brand_dna, get_name_net
 from prarthana.urlscan_nets import urlscan_nets
 from prarthana.investigator import investigate
@@ -78,7 +78,10 @@ def node_hunt(st: ForgeState) -> dict:
                     found.append(s)
         except Exception as e:
             log(st.log, f"hunt: name_net ({where}) failed: {type(e).__name__}")
-        found += urlscan_nets(dna, seen, st.log)
+        # #16: also hunt for relaunches — urlscan pages that load a confirmed fake's own (non-brand) images
+        from prarthana import relaunch
+        old_hashes = relaunch.history_image_hashes(relaunch.load_history(st.suspects), dna)
+        found += urlscan_nets(dna, seen, st.log, extra_hashes=old_hashes)
     else:
         log(st.log, f"hunt: round {st.round} re-hunt with {len(st.pending_hashes)} campaign image hashes")
         found += urlscan_nets(dna, seen, st.log, extra_hashes=st.pending_hashes, only_hashes=True)
@@ -111,7 +114,15 @@ def node_prioritise(st: ForgeState) -> dict:
         order = heuristic_rank(new)
         log(st.log, "prioritise: ranked by heuristic")
     # manual suspects always come first, then cap the round
-    order = [s for s in order if s.found_by == "manual"] + [s for s in order if s.found_by != "manual"]
+    # #16: suspects that share an IP with a fake the owner already confirmed (likely relaunches) go first,
+    # then owner-reported (manual) ones, then the rest in ranked order
+    from prarthana import relaunch
+    hist = relaunch.load_history([s for s in st.suspects if s.url not in set(st.round_new)])
+    first = [s for s in order if relaunch.likely_relaunch_by_ip(s, hist)]
+    if first:
+        log(st.log, f"prioritise: {plural(len(first), 'likely relaunch')} (IP of a confirmed fake) investigated first")
+    order = first + [s for s in order if s not in first and s.found_by == "manual"] + \
+        [s for s in order if s not in first and s.found_by != "manual"]
     keep = order[:MAX_INVESTIGATE_PER_ROUND]
     if len(order) > len(keep):
         log(st.log, f"prioritise: {len(order) - len(keep)} lower-priority suspects left for the next run")
@@ -119,8 +130,8 @@ def node_prioritise(st: ForgeState) -> dict:
     # suspects not investigated this round are dropped from seen_domains so a later run picks them up
     rest = [s for s in new if s.url not in keep_urls]
     # cloaking check order: hotlink / hash matches (and owner reports) first, in case the time budget runs out
-    cloak_queue = [s.url for s in keep if s.found_by in CLOAK_FIRST] + \
-                  [s.url for s in keep if s.found_by not in CLOAK_FIRST]
+    cloak_queue = [s.url for s in keep if s in first or s.found_by in CLOAK_FIRST] + \
+                  [s.url for s in keep if s not in first and s.found_by not in CLOAK_FIRST]
     return {"round_new": [s.url for s in keep], "cloak_queue": cloak_queue,
             "suspects": [s for s in st.suspects if s not in rest],
             "seen_domains": set(st.seen_domains) - {s.domain for s in rest},
@@ -160,6 +171,12 @@ def node_investigate(st: ForgeState) -> dict:
 
 
 def node_score(st: ForgeState) -> dict:
+    # #16 relaunch check against fakes the owner already confirmed / reported (before scoring: it adds +10)
+    from prarthana import relaunch
+    new = _new(st)
+    hist = relaunch.load_history([s for s in st.suspects if s.url not in set(st.round_new)])
+    relaunch.detect([s for s in new if not is_allowed(s.domain or domain_of(s.url), st.brand_dna)], hist,
+                    st.brand_dna, st.log)
     score_all(st.suspects, st.brand_dna)
     after = {s.campaign_id for s in st.suspects if s.campaign_id}
     fresh = sorted(after - set(st.handled_campaigns))

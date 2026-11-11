@@ -24,8 +24,12 @@ FROM_RESEND = "FORGE <onboarding@resend.dev>"
 
 # ------------------------------------------------------------------ human-in-the-loop
 def confirm(suspect: Suspect, yes: bool) -> Suspect:
-    """Called by the dashboard's "Yes, it's fake" / "No" button."""
+    """Called by the dashboard's "Yes, it's fake" / "No" button.
+    A confirmed fake is remembered (cache/confirmed_fakes.json) so its relaunches are recognised later (#16)."""
     suspect.status = "confirmed" if yes else "not_fake"
+    if yes:
+        from prarthana.relaunch import remember
+        remember(suspect)
     return suspect
 
 
@@ -125,6 +129,7 @@ def _alert_html(flagged: list, dna: BrandDNA) -> str:
       letter-spacing:1px;padding:5px 10px;border-radius:12px">{labels.get(s.label, s.label)}</span></td>
    </tr></table>
    <div style="font:12px Helvetica,Arial,sans-serif;color:#5B6675;margin:4px 0 12px">{escape(s.url)}</div>
+   {f'<div style="background:#FF4F1A;color:#141414;font:bold 12px Helvetica,Arial,sans-serif;padding:6px 10px;border-radius:6px;margin:-4px 0 12px">Relaunch of {escape(s.relaunch_of)} &mdash; a fake you already confirmed</div>' if s.relaunch_of else ''}
    <table cellpadding="0" cellspacing="0"><tr>
     <td style="background:#0B1F3A;color:#fff;border-radius:8px;padding:8px 14px;text-align:center">
       <div style="font:bold 22px Helvetica,Arial,sans-serif">{s.score}</div>
@@ -172,8 +177,9 @@ def send_alert(suspects: list, dna: BrandDNA, state_log=None, peers: list | None
         log(state_log, "alert: nothing to report")
         return "none"
     pdfs = [make_evidence_pdf(s, dna, state_log, peers=peers or suspects) for s in flagged]
-    lines = [f"- {s.url}  score {s.score}/100 ({s.label})\n  Evidence fingerprint: {s.evidence_sha256 or 'unsigned'}"
-             for s in flagged]
+    lines = [f"- {s.url}  score {s.score}/100 ({s.label})"
+             + (f"\n  Relaunch of {s.relaunch_of} (a fake you already confirmed)" if s.relaunch_of else "")
+             + f"\n  Evidence fingerprint: {s.evidence_sha256 or 'unsigned'}" for s in flagged]
     body = (f"Hello,\n\nFORGE found {plural(len(flagged), 'possible fake')} of your store {dna.store_url}:\n\n"
             + "\n".join(lines) +
             "\n\nEvidence PDFs are attached. Each one is digitally signed by FORGE; the fingerprint is the "
@@ -231,4 +237,6 @@ def send_abuse_report(suspect: Suspect, dna: BrandDNA | None = None, state_log=N
             f"{dna.brand_name}")
     how = send_email(to, subject, body, [pdf], f"abuse_{_safe_name(suspect.domain)}.eml", state_log)
     suspect.status = "reported"
+    from prarthana.relaunch import remember
+    remember(suspect)
     return how

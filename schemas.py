@@ -97,6 +97,7 @@ class Suspect:
     cloaking: bool = False     # #13: shows a different page to an Instagram-ad visitor than to a normal visitor
     cloaking_details: dict = field(default_factory=dict)  # check_cloaking() result (visits, differences, ...)
     relaunch_of: str = ""      # #16: domain of an earlier confirmed/reported fake this site relaunches
+    relaunch_evidence: list = field(default_factory=list)  # #16: why (same contact / image / IP)
 
 
 @dataclass

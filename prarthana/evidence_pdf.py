@@ -88,8 +88,9 @@ SIGNALS = [("Product photos", 30, "Brand product photos re-used (exact or look-a
            ("Unofficial contacts", 15, "Phone / UPI / e-mail not on the brand's official list"),
            ("Young domain", 10, "Domain registered less than 30 days ago"),
            ("Cloaking", 10, "Different page for Instagram-ad shoppers than for bots"),
+           ("Relaunch", 10, "Same contact / image / IP as a fake you already confirmed"),
            ("Scam phrases", 0, "Pressure / payment phrases (noted, no points)")]
-SHORT = {"Cloaking": "cloaking", "Product photos": "photos", "Logo / favicon": "logo", "Price undercut": "price",
+SHORT = {"Relaunch": "relaunch", "Cloaking": "cloaking", "Product photos": "photos", "Logo / favicon": "logo", "Price undercut": "price",
          "Unofficial contacts": "contacts", "Young domain": "domain", "Scam phrases": "phrases", "Note": "note"}
 
 
@@ -221,7 +222,7 @@ def abuse_contacts(s: Suspect) -> dict:
 
 def breakdown(s: Suspect) -> list:
     """[(signal, points, reason, colour)] parsed from the scorer's reasons (orange shades by position)."""
-    rules = [("photo", "Product photos"), ("logo", "Logo / favicon"), ("price", "Price undercut"),
+    rules = [("relaunch of", "Relaunch"), ("photo", "Product photos"), ("logo", "Logo / favicon"), ("price", "Price undercut"),
              ("contact", "Unofficial contacts"), ("domain registered", "Young domain"), ("cloaking", "Cloaking"),
              ("scam", "Scam phrases")]
     rows, k = [], 0
@@ -506,12 +507,21 @@ class Doc:
 
         # 02 SUSPECT — orange card
         xr = M + wl + G
-        hs = 122
-        yy = self.card(xr, y0, wr, hs, "suspect", "orange")
         st = style(9.5, 12.5, INK, MONO_M)
+        st_small = style(8, 10.5, INK, MONO)
+        store_txt = _t(self.dna.store_url or "the brand's store (URL not given)")
+        rel = getattr(s, "relaunch_of", "") or ""
+        need = 36 + self.para_h(_t(s.url), wr - 2 * P, st) + 21 + self.para_h(store_txt, wr - 2 * P, st_small) + 10
+        if rel:
+            need += 34
+        hs = max(122, min(190, round(need)))
+        yy = self.card(xr, y0, wr, hs, "suspect", "orange")
         h_ = self.para(_t(s.url), xr + P, yy - 2, wr - 2 * P, st)
         self.text(xr + P, yy - h_ - 16, "copying", 7, MONO, INK)
-        self.para(_t(self.dna.store_url or "the brand's store (URL not given)"), xr + P, yy - h_ - 21, wr - 2 * P, style(8, 10.5, INK, MONO))
+        h2 = self.para(store_txt, xr + P, yy - h_ - 21, wr - 2 * P, st_small)
+        if rel:  # #16: this site relaunches a fake the owner already confirmed
+            ry = yy - h_ - 21 - h2 - 10
+            self.pill(xr + P, ry - 14, f"Relaunch of {rel}"[:40], fill=INK, color=BONE, size=6.8, h=15)
 
         # 03 TRACE — bone card
         ht = ha - hs - G

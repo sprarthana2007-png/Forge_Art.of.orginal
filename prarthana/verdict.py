@@ -42,7 +42,8 @@ def gemini_verdict(suspects: list, brand_dna: BrandDNA, state_log=None) -> dict:
         return {}
     items = [{"url": s.url, "domain": s.domain, "score": s.score, "label": s.label, "reasons": s.reasons,
               "domain_age_days": s.domain_age_days, "cloaking": bool(getattr(s, "cloaking", False)),
-              "cloaking_differences": ((getattr(s, "cloaking_details", None) or {}).get("differences") or [])[:3]}
+              "cloaking_differences": ((getattr(s, "cloaking_details", None) or {}).get("differences") or [])[:3],
+              "relaunch_of": getattr(s, "relaunch_of", "") or None}
              for s in suspects]
     prompt = (
         "You help a small Indian online brand spot fake copies of its store. "
@@ -51,7 +52,8 @@ def gemini_verdict(suspects: list, brand_dna: BrandDNA, state_log=None) -> dict:
         "(1) the score and what it means, (2) the strongest evidence, (3) what they should do next. "
         "Use only the facts given; do not invent anything. Do not include any phone numbers or IDs. "
         "If cloaking is true, say clearly that the site shows a different page to shoppers arriving from an "
-        "Instagram ad than to normal visitors (it hides the scam from checks).\n"
+        "Instagram ad than to normal visitors (it hides the scam from checks). "
+        "If relaunch_of is set, say it looks like a relaunch of that fake the owner already confirmed.\n"
         'Reply as JSON: {"verdicts": [{"url": "...", "verdict": "..."}]}\n\n'
         "Suspects:\n" + json.dumps(items, ensure_ascii=False, indent=1))
     data = gemini_json(prompt, state_log)

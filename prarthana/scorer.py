@@ -13,6 +13,7 @@ PTS_PRICE = 15
 PTS_CONTACT = 15
 PTS_YOUNG = 10
 PTS_CLOAK = 10
+PTS_RELAUNCH = 10
 PRICE_DROP = 0.40      # at least 40% below the brand price
 YOUNG_DAYS = 30
 LIKELY_FAKE = 75
@@ -80,6 +81,11 @@ def score_suspect(s: Suspect, dna: BrandDNA) -> Suspect:
         diffs = (getattr(s, "cloaking_details", None) or {}).get("differences") or []
         reasons.append(f"+{PTS_CLOAK}: shows a different page to an Instagram-ad visitor than to a normal visitor "
                        f"(cloaking)" + (f": {diffs[0].rstrip('.')}." if diffs else "."))
+    if getattr(s, "relaunch_of", ""):
+        score += PTS_RELAUNCH
+        why = getattr(s, "relaunch_evidence", None) or []
+        reasons.append(f"+{PTS_RELAUNCH}: relaunch of a fake you already confirmed ({s.relaunch_of})"
+                       + (f": {'; '.join(why)}." if why else "."))
     if s.scam_phrases:
         reasons.append("Note (no points): scam-style phrases found: " + ", ".join(map(str, s.scam_phrases)) + ".")
 
