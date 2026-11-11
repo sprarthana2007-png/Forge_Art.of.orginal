@@ -5,5 +5,6 @@ st.navigation([
     st.Page('views/cases.py', title='Cases', default=True),
     st.Page('views/evidence.py', title='Evidence', url_path='evidence'),
     st.Page('views/reports.py', title='Reports', url_path='reports'),
+    st.Page('views/brand_protection.py', title='Brand protection', url_path='brand-protection'),
     st.Page('views/settings.py', title='Settings', url_path='settings'),
 ], position='hidden').run()

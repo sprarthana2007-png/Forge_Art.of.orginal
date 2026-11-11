@@ -327,6 +327,7 @@ def base(title, layout='wide'):
 NAV = (('views/cases.py', 'Cases', ':material/folder_open:', 'Cases'),
        ('views/evidence.py', 'Evidence', ':material/layers:', 'Evidence'),
        ('views/reports.py', 'Reports', ':material/bar_chart:', 'Report tracker'),
+       ('views/brand_protection.py', 'Brand', ':material/verified_user:', 'Brand protection'),
        ('views/settings.py', 'Settings', ':material/settings:', 'Settings'))
 
 
