@@ -121,3 +121,16 @@ def test_compare_redirect_to_other_domain():
          "phash": None}
     c = compare(a, b)
     assert c["different"] and "pay-now.example" in c["reasons"][0]
+
+
+def test_visit3_defaults_to_singapore(monkeypatch):
+    import prarthana.cloaking as cloaking
+    monkeypatch.delenv("FORGE_CLOAK_COUNTRY", raising=False)
+    assert cloaking.country() == "sg" and cloaking.country_name() == "Singapore"
+    assert cloaking.network_label() == "Other country (urlscan)"
+    monkeypatch.setenv("FORGE_CLOAK_COUNTRY", "JP")
+    assert cloaking.country() == "jp" and cloaking.country_name() == "Japan"
+    v = {"label": "Other country (urlscan)", "phrase": "visit from Japan (urlscan)", "final_url": "https://a.example/",
+         "text": "one two three", "phash": None}
+    b = {"label": "bot", "final_url": "https://a.example/", "text": "totally different words here", "phash": None}
+    assert "visit from Japan (urlscan)" in cloaking.compare(b, v)["reasons"][0]

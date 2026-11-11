@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+<defs><radialGradient id="bg" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#fbf8f2"/><stop offset="1" stop-color="#e9e2d5"/></radialGradient>
+<linearGradient id="j" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f07a3c"/><stop offset="1" stop-color="#c9531f"/></linearGradient></defs>
+<rect width="400" height="400" fill="url(#bg)"/><ellipse cx="200" cy="355" rx="120" ry="12" fill="#000" opacity=".08"/>
+<path d="M150 70 Q200 95 250 70 L320 105 L350 250 L315 258 L300 170 L298 340 L102 340 L100 170 L85 258 L50 250 L80 105Z" fill="url(#j)"/>
+<path d="M150 70 Q200 120 250 70 Q240 55 200 52 Q160 55 150 70Z" fill="#0f2a24"/>
+<rect x="197" y="85" width="6" height="255" fill="#0f2a24" opacity=".85"/>
+<path d="M120 220 h50 v8 h-50z M230 220 h50 v8 h-50z" fill="#0f2a24" opacity=".5"/>
+<path d="M100 170 L102 340 M300 170 L298 340" stroke="#a8441a" stroke-width="3" fill="none"/>
+<g transform="translate(232 120) scale(.32)"><circle cx="32" cy="32" r="30" fill="#0f2a24"/><path d="M32 8l5.6 18.4H56l-14.8 11 5.6 18.4L32 44.6 17.2 55.8l5.6-18.4L8 26.4h18.4z" fill="#f4efe6"/></g></svg>

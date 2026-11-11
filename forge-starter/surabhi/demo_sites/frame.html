@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>frame</title>
+<style>
+*{box-sizing:border-box;margin:0}body{background:#dfe1e5;font-family:Arial,sans-serif}
+.bar{height:38px;background:#dfe1e5;padding:8px 12px 0}
+.tabs{display:flex;align-items:flex-end;height:30px;gap:8px}.dots{display:flex;gap:7px;margin-right:12px;align-self:center}
+.dots i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.dots i+i{background:#febc2e}.dots i+i+i{background:#28c840}
+.tab{background:#fff;border-radius:8px 8px 0 0;padding:8px 14px;font-size:12px;color:#333;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.url{background:#fff;height:38px;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:14px;color:#202124;border-bottom:1px solid #ccc}
+.url .pill{background:#f1f3f4;border-radius:999px;padding:6px 14px;flex:1;display:flex;gap:8px}
+.url .pill span{color:#5f6368}
+iframe{border:0;width:100%;height:calc(100vh - 76px);display:block;background:#fff}
+</style></head><body>
+<div class="bar"><div class="tabs"><span class="dots"><i></i><i></i><i></i></span><span class="tab" id="t"></span></div></div>
+<div class="url">← → ⟳<div class="pill"><span id="lock">🔒</span><b id="u" style="font-weight:400"></b></div></div>
+<iframe id="f"></iframe>
+<script>
+const q = new URLSearchParams(location.search);
+document.getElementById('u').textContent = q.get('url');
+document.getElementById('f').src = q.get('src');
+
+</script></body></html>

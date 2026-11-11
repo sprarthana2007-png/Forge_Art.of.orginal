@@ -1,0 +1,5 @@
+streamlit>=1.40,<2
+google-genai>=1.0
+pydantic>=2
+imagehash>=4.3
+pillow>=10
