@@ -4,6 +4,11 @@
 """
 from __future__ import annotations
 
+# Load .env (project root) before anything else reads os.environ; real environment variables win.
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent / ".env", encoding="utf-8-sig")
+
 import argparse
 import sys
 

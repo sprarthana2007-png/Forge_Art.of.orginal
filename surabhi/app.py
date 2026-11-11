@@ -1,3 +1,8 @@
+# Load .env (project root) before anything else reads os.environ; real environment variables win.
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / '.env', encoding='utf-8-sig')
+
 import streamlit as st
 
 # Navigation is the floating menu at the bottom of every page (see ui.py).
