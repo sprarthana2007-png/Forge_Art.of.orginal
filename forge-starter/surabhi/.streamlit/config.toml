@@ -1,0 +1,16 @@
+# Theme defaults; the full look (and Dark / Grey modes) lives in ui.py.
+[theme]
+base = "light"
+primaryColor = "#9c4520"
+backgroundColor = "#f1e9dc"
+secondaryBackgroundColor = "#f9f3e8"
+textColor = "#2a1c12"
+borderColor = "#bfac8e"
+baseRadius = "medium"
+font = "serif"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

@@ -1,0 +1,3 @@
+playwright>=1.49
+imagehash>=4.3
+pillow>=10

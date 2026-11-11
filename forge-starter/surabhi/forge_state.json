@@ -1,0 +1,314 @@
+{
+  "brand_dna": {
+    "store_url": "https://northstar.example",
+    "brand_name": "Northstar",
+    "logo_sha256": "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
+    "favicon_sha256": "",
+    "photo_sha256s": [
+      "01a6e80f3dcd9cd833021cb2776a4f8b2caa78f96077a833e2f1d5f1e65ef18f",
+      "67b96f10fc8fd6cabb0f7e04d0cc2aebc63da159f92b4cdb1895a3d5583702cc",
+      "979abdacc06097a2109312948a04a4bd7b1432bfcdec7bef0eb426108d7be8ee",
+      "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+    ],
+    "photo_phashes": [
+      "b890c36e3c90cb6f",
+      "e59292699be4993c",
+      "e6b3993333cc8c8c",
+      "e9a297b0dacdcc48"
+    ],
+    "product_names": [],
+    "prices": {},
+    "official_contact_hashes": [
+      "b5dfb2537463832adaf6e53d2ad93694cb1f175c3d0b46759d3dc70389db4d51"
+    ],
+    "verified_owner": true,
+    "allow_list": [],
+    "logo_phash": "bb38b49b84b3986c",
+    "favicon_phash": "",
+    "screenshot_path": "evidence/official.png",
+    "domain_age_days": 8276
+  },
+  "suspects": [
+    {
+      "url": "https://northstar-sale.example",
+      "domain": "northstar-sale.example",
+      "found_by": "manual",
+      "screenshot_path": "evidence/suspect_northstar_sale_example.png",
+      "image_exact_matches": [
+        "01a6e80f3dcd9cd833021cb2776a4f8b2caa78f96077a833e2f1d5f1e65ef18f",
+        "67b96f10fc8fd6cabb0f7e04d0cc2aebc63da159f92b4cdb1895a3d5583702cc",
+        "979abdacc06097a2109312948a04a4bd7b1432bfcdec7bef0eb426108d7be8ee",
+        "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
+        "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+      ],
+      "image_similar_matches": [],
+      "logo_match": true,
+      "prices_found": {},
+      "contact_hashes": [],
+      "contacts_masked": [],
+      "domain_age_days": 9,
+      "scam_phrases": [
+        "90% OFF",
+        "TODAY ONLY",
+        "OFFICIAL SALE",
+        "Stock clearance",
+        "PAY BY UPI ONLY",
+        "Cash on delivery and cards not accepted",
+        "No returns",
+        "Contact: WhatsApp"
+      ],
+      "score": 82,
+      "label": "likely_fake",
+      "reasons": [
+        "5 images copied from the official store (logo and 4 product photos)",
+        "Official logo and 'Official Sale' label used",
+        "90% discount with a countdown timer",
+        "'UPI only' payment; no cards or cash on delivery",
+        "No returns; contact by WhatsApp only"
+      ],
+      "verdict": "",
+      "campaign_id": null,
+      "status": "investigated",
+      "ip": null,
+      "image_sha256s": [
+        "01a6e80f3dcd9cd833021cb2776a4f8b2caa78f96077a833e2f1d5f1e65ef18f",
+        "40fadea7312382a19566bf7f83101a693dc2268b81e65f07ce696f0eaf58e85d",
+        "67b96f10fc8fd6cabb0f7e04d0cc2aebc63da159f92b4cdb1895a3d5583702cc",
+        "979abdacc06097a2109312948a04a4bd7b1432bfcdec7bef0eb426108d7be8ee",
+        "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
+        "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+      ],
+      "pdf_path": "",
+      "abuse_email": "",
+      "evidence_sha256": "",
+      "page_title": "NORTHSTAR OFFICIAL SALE 90% OFF",
+      "page_text": "⚡ MEGA CLEARANCE — FLAT 90% OFF ON ALL NORTHSTAR PRODUCTS — TODAY ONLY ⚡ NORTHSTAROFFICIAL SALE Offer ends in 00:14:59 WAREHOUSE 90% OFFStock clearance. Only 37 pieces left. Prices will go back up after the timer ends. PAY BY UPI ONLYScan & pay · Instant confirmationCash on delivery and cards not accepted -90%Summit Shell Jacket₹12,999₹1,299Only 3 left!BUY NOW -90%Ridge 28L Pack₹6,499₹649Only 2 left!BUY NOW -89%Trail Runner GTX₹8,999₹999Only 5 left!BUY NOW -90%Thermal Flask 750₹1,799₹179Only 4 left!BUY NOW -92%Basecamp 2P Tent₹18,499₹1,499Only 1 left!BUY NOW ✔ 100% Original✔ Official Northstar Store✔ Delivery in 2 days✖ No returns on sale items © NORTHSTAR SALE · Contact: WhatsApp only",
+      "matched_image_pairs": [
+        [
+          "evidence/matches/official_logo.png",
+          "evidence/matches/northstar_sale_logo.png",
+          "exact copy · SHA-256 match"
+        ],
+        [
+          "evidence/matches/official_jacket.png",
+          "evidence/matches/northstar_sale_jacket.png",
+          "exact copy · SHA-256 match"
+        ],
+        [
+          "evidence/matches/official_pack.png",
+          "evidence/matches/northstar_sale_pack.png",
+          "exact copy · SHA-256 match"
+        ],
+        [
+          "evidence/matches/official_shoe.png",
+          "evidence/matches/northstar_sale_shoe.png",
+          "exact copy · SHA-256 match"
+        ],
+        [
+          "evidence/matches/official_flask.png",
+          "evidence/matches/northstar_sale_flask.png",
+          "exact copy · SHA-256 match"
+        ]
+      ]
+    },
+    {
+      "url": "https://northstar-outlet.example",
+      "domain": "northstar-outlet.example",
+      "found_by": "manual",
+      "screenshot_path": "evidence/suspect_northstar_outlet_example.png",
+      "image_exact_matches": [],
+      "image_similar_matches": [
+        "e9a297b0dacdcc48"
+      ],
+      "logo_match": false,
+      "prices_found": {},
+      "contact_hashes": [
+        "3a463e4e08a88b92e99fcde7943c7dd72c51f50697ee86d817364fabf107e71f",
+        "84d9c4b849506b6d8f8075a9000e7e0a254be71060ea889fad3c88395988f4fc"
+      ],
+      "contacts_masked": [
+        "00XXXXXX00",
+        "ouXXXXXXXXXXXXXXXXXXXXXXXXXXXle"
+      ],
+      "domain_age_days": 448,
+      "scam_phrases": [],
+      "score": 56,
+      "label": "suspicious",
+      "reasons": [
+        "Similar brand name: 'North Star Outlet'",
+        "1 near-duplicate image (Summit Shell Jacket, mirrored and recoloured)",
+        "Discounts of 33–40%, within a normal outlet range",
+        "Lists cards, UPI and cash on delivery"
+      ],
+      "verdict": "",
+      "campaign_id": null,
+      "status": "investigated",
+      "ip": null,
+      "image_sha256s": [
+        "86b0f17fa646a68d1649c4140fe243bedb37d9d4095f12c51c4efb3795748ae4",
+        "b2e897cc44ad3ae07d456cc435ec23eb0b6ea29283652b124dcd987ca4f02907",
+        "c0356726463171a900e5d3d5cc1d9be849531f4cc89d966874f313159d697e7f",
+        "e94f0bec5093d9d3b70a9df19f7505de6036172ca9ace205a09b8454962df2ab"
+      ],
+      "pdf_path": "",
+      "abuse_email": "",
+      "evidence_sha256": "",
+      "page_title": "North Star Outlet — Branded outdoor wear at outlet prices",
+      "page_text": "★North Star OutletBRANDED · SURPLUS · EXPORT JacketsFleeceAccessoriesClearanceSearch products… Outdoor jackets at outlet prices Surplus and export-overrun stock from leading outdoor brands. Limited sizes, new with tags. Up to 40% off retail. Shop jackets This week's arrivals Storm Shell Jacket — BlueExport surplus · sizes M, L₹12,999₹7,999-38% Grid Fleece HoodieBrushed fleece · all sizes₹3,499₹2,299-34% Trail CapQuick-dry · one size₹999₹649-35% Merino Hiking Socks (2)Cushioned · sizes 7–11₹1,199₹799-33% North Star Outlet sells genuine surplus stock. Brand names are property of their respective owners. Payments: cards, UPI, COD. Contact: +91 00000 00000 · outlet@northstar-outlet.example",
+      "matched_image_pairs": [
+        [
+          "evidence/matches/official_jacket.png",
+          "evidence/matches/northstar_outlet_jacket_outlet.png",
+          "near-duplicate · perceptual hash, mirrored"
+        ]
+      ]
+    },
+    {
+      "url": "https://northstar-partner.example",
+      "domain": "northstar-partner.example",
+      "found_by": "manual",
+      "screenshot_path": "evidence/suspect_northstar_partner_example.png",
+      "image_exact_matches": [
+        "67b96f10fc8fd6cabb0f7e04d0cc2aebc63da159f92b4cdb1895a3d5583702cc",
+        "979abdacc06097a2109312948a04a4bd7b1432bfcdec7bef0eb426108d7be8ee",
+        "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
+        "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+      ],
+      "image_similar_matches": [],
+      "logo_match": true,
+      "prices_found": {},
+      "contact_hashes": [
+        "15853ad5d03947b8cb15b23b4498adc24eb9d188ebdd6e23b1fb05abe925af7a",
+        "84d9c4b849506b6d8f8075a9000e7e0a254be71060ea889fad3c88395988f4fc"
+      ],
+      "contacts_masked": [
+        "00XXXXXX00",
+        "heXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXay"
+      ],
+      "domain_age_days": 5642,
+      "scam_phrases": [
+        "retail partner"
+      ],
+      "score": 24,
+      "label": "suspicious",
+      "reasons": [
+        "4 official images used (logo and 3 product photos)",
+        "Claims to be a 'Northstar retail partner'; retailer authorization requires confirmation",
+        "Prices match the official store",
+        "Physical store address, GST invoices and 7-day returns listed"
+      ],
+      "verdict": "",
+      "campaign_id": null,
+      "status": "investigated",
+      "ip": null,
+      "image_sha256s": [
+        "40fadea7312382a19566bf7f83101a693dc2268b81e65f07ce696f0eaf58e85d",
+        "67b96f10fc8fd6cabb0f7e04d0cc2aebc63da159f92b4cdb1895a3d5583702cc",
+        "979abdacc06097a2109312948a04a4bd7b1432bfcdec7bef0eb426108d7be8ee",
+        "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
+        "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+      ],
+      "pdf_path": "",
+      "abuse_email": "",
+      "evidence_sha256": "",
+      "page_title": "Peak & Pine Outfitters — Northstar retail partner",
+      "page_text": "Peak & Pine Outfitters BrandsHikingCampingVisit us Northstar retail partner Your neighbourhood outfitter in Pune, since 2011. We stock Northstar packs, footwear and camp gear alongside other independent brands. Try before you buy at our Baner store, or order online with free fitting advice. SHOP NORTHSTAR AT PEAK & PINE Northstar at Peak & Pine NORTHSTARRidge 28L Pack₹6,499 NORTHSTARTrail Runner GTX₹8,999 NORTHSTARThermal Flask 750₹1,799 NORTHSTARBasecamp 2P Tent₹18,499 Visit the storeShop 4, Baner Road, Pune 411045Open daily 10:00–20:30 PaymentsCards, UPI, net banking, cash on deliveryGST invoice with every order Talk to us+91 00000 00000 · hello@northstar-partner.example7-day returns on unused items",
+      "matched_image_pairs": [
+        [
+          "evidence/matches/official_logo.png",
+          "evidence/matches/northstar_partner_logo.png",
+          "exact copy · SHA-256 match"
+        ],
+        [
+          "evidence/matches/official_pack.png",
+          "evidence/matches/northstar_partner_pack.png",
+          "exact copy · SHA-256 match"
+        ],
+        [
+          "evidence/matches/official_shoe.png",
+          "evidence/matches/northstar_partner_shoe.png",
+          "exact copy · SHA-256 match"
+        ],
+        [
+          "evidence/matches/official_flask.png",
+          "evidence/matches/northstar_partner_flask.png",
+          "exact copy · SHA-256 match"
+        ]
+      ]
+    },
+    {
+      "url": "https://northstar-rewards.example/claim",
+      "domain": "northstar-rewards.example",
+      "found_by": "manual",
+      "screenshot_path": "evidence/suspect_northstar_rewards_example.png",
+      "image_exact_matches": [
+        "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
+        "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+      ],
+      "image_similar_matches": [],
+      "logo_match": true,
+      "prices_found": {},
+      "contact_hashes": [],
+      "contacts_masked": [],
+      "domain_age_days": 3,
+      "scam_phrases": [
+        "ONLY 3 PRIZES LEFT",
+        "reserved for 04:59 minutes",
+        "Congratulations",
+        "100% OFF",
+        "pay a small ₹49 shipping & insurance fee",
+        "accepted only through UPI"
+      ],
+      "score": 94,
+      "label": "likely_fake",
+      "reasons": [
+        "Prize claim asks for a ₹49 payment",
+        "Official logo and a product photo copied",
+        "Urgency phrases: 'Only 3 prizes left', 5-minute timer",
+        "UPI-only, non-refundable fee",
+        "Fake 'just claimed' activity feed"
+      ],
+      "verdict": "",
+      "campaign_id": null,
+      "status": "investigated",
+      "ip": null,
+      "image_sha256s": [
+        "c34d0bc3290cd1795681d421b77a18ae0045ba361e533818b74cc2760291d719",
+        "e8bdaf851571840694e77c70f43aed10a6563e023745e0425be778ea2c804d5c"
+      ],
+      "pdf_path": "",
+      "abuse_email": "",
+      "evidence_sha256": "",
+      "page_title": "🎉 Northstar Anniversary Rewards — You are a winner!",
+      "page_text": "⚠ ONLY 3 PRIZES LEFT · Your reward is reserved for 04:59 minutes NORTHSTAR28TH ANNIVERSARY REWARDS Congratulations! You won a free Northstar backpack Ridge 28L PackWorth ₹6,499FREE — 100% OFF To claim, pay a small ₹49 shipping & insurance fee by UPI. Unclaimed prizes go to the next winner. CLAIM MY PRIZE NOW → Hurry! Offer expires in 04:59 Payment accepted only through UPI. Fee is non-refundable. 🎁 Rahul from Delhi just claimed a tent🎁 Priya from Mumbai just claimed a jacket🎁 Arjun from Pune just claimed a pack",
+      "matched_image_pairs": [
+        [
+          "evidence/matches/official_logo.png",
+          "evidence/matches/northstar_rewards_logo.png",
+          "exact copy · SHA-256 match"
+        ],
+        [
+          "evidence/matches/official_pack.png",
+          "evidence/matches/northstar_rewards_pack.png",
+          "exact copy · SHA-256 match"
+        ]
+      ]
+    }
+  ],
+  "seen_domains": [
+    "northstar-outlet.example",
+    "northstar-partner.example",
+    "northstar-rewards.example",
+    "northstar-sale.example"
+  ],
+  "round": 0,
+  "next_step": "",
+  "log": [
+    "2026-11-11 analyze.py: screenshots, image hashes, phrases and contacts collected"
+  ],
+  "manual_urls": [],
+  "round_new": [],
+  "pending_hashes": [],
+  "handled_campaigns": [],
+  "alerted": []
+}

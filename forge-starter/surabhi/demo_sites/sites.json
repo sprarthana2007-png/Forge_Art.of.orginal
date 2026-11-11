@@ -1,0 +1,70 @@
+{
+  "_comment": "Demo stand-in for the team pipeline: discovery, scoring and labels normally come from the other FORGE modules. analyze.py turns this list into forge_state.json.",
+  "official": {
+    "domain": "northstar.example",
+    "url": "official/index.html",
+    "created": "2004-03-15",
+    "brand_name": "Northstar"
+  },
+  "suspects": [
+    {
+      "domain": "northstar-sale.example",
+      "url": "case1/index.html",
+      "created": "2026-11-02",
+      "found_by": "manual",
+      "score": 82,
+      "label": "likely_fake",
+      "reasons": [
+        "5 images copied from the official store (logo and 4 product photos)",
+        "Official logo and 'Official Sale' label used",
+        "90% discount with a countdown timer",
+        "'UPI only' payment; no cards or cash on delivery",
+        "No returns; contact by WhatsApp only"
+      ]
+    },
+    {
+      "domain": "northstar-outlet.example",
+      "url": "case2/index.html",
+      "created": "2025-08-20",
+      "found_by": "manual",
+      "score": 56,
+      "label": "suspicious",
+      "reasons": [
+        "Similar brand name: 'North Star Outlet'",
+        "1 near-duplicate image (Summit Shell Jacket, mirrored and recoloured)",
+        "Discounts of 33–40%, within a normal outlet range",
+        "Lists cards, UPI and cash on delivery"
+      ]
+    },
+    {
+      "domain": "northstar-partner.example",
+      "url": "case3/index.html",
+      "created": "2011-06-01",
+      "found_by": "manual",
+      "score": 24,
+      "label": "suspicious",
+      "reasons": [
+        "4 official images used (logo and 3 product photos)",
+        "Claims to be a 'Northstar retail partner'; retailer authorization requires confirmation",
+        "Prices match the official store",
+        "Physical store address, GST invoices and 7-day returns listed"
+      ]
+    },
+    {
+      "domain": "northstar-rewards.example",
+      "url": "case4/index.html",
+      "display_url": "https://northstar-rewards.example/claim",
+      "created": "2026-11-08",
+      "found_by": "manual",
+      "score": 94,
+      "label": "likely_fake",
+      "reasons": [
+        "Prize claim asks for a ₹49 payment",
+        "Official logo and a product photo copied",
+        "Urgency phrases: 'Only 3 prizes left', 5-minute timer",
+        "UPI-only, non-refundable fee",
+        "Fake 'just claimed' activity feed"
+      ]
+    }
+  ]
+}
