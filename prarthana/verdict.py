@@ -24,9 +24,14 @@ def template_verdict(s: Suspect, dna: BrandDNA) -> str:
     because = "; ".join(pts[:3]) if pts else "no copied photos, logo, prices or contacts were found"
     first = f"This site ({s.domain}) scored {s.score}/100 because it {because[0].lower() + because[1:]}."
     second = f"FORGE rates it as {LABEL_TEXT.get(s.label, s.label)} {brand}."
+    extras = []
+    if getattr(s, "relaunch_of", ""):
+        extras.append(f"it looks like a relaunch of {s.relaunch_of}, a fake you already confirmed")
     if getattr(s, "cloaking", False):
-        second = (f"FORGE rates it as {LABEL_TEXT.get(s.label, s.label)} {brand}, and it shows a different page "
-                  f"to shoppers arriving from an Instagram ad than to normal visitors (cloaking).")
+        extras.append("it shows a different page to shoppers arriving from an Instagram ad than to normal "
+                      "visitors (cloaking)")
+    if extras:
+        second = f"FORGE rates it as {LABEL_TEXT.get(s.label, s.label)} {brand}; " + " and ".join(extras) + "."
     if s.label == "likely_fake":
         third = "Please review the evidence and confirm in your FORGE dashboard so an abuse report can be sent."
     elif s.label == "suspicious":
