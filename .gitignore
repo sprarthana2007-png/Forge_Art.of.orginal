@@ -6,3 +6,4 @@ output/
 *.bundle
 .venv/
 surabhi/data/
+.vscode/

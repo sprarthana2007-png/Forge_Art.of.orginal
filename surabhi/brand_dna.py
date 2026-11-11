@@ -15,6 +15,7 @@ and merges in the owner-registered logo / reference fingerprints for that domain
 from __future__ import annotations
 
 import mimetypes
+import re
 import sqlite3
 import warnings
 from io import BytesIO
@@ -23,7 +24,7 @@ from pathlib import Path
 import imagehash
 from PIL import Image, UnidentifiedImageError
 
-from schemas import BrandDNA, file_sha256, is_similar, photo_phash
+from schemas import BrandDNA, file_sha256, is_similar, is_svg, photo_phash, raster_bytes
 from surabhi import store
 from surabhi.name_net import normalize_domain
 
@@ -45,16 +46,20 @@ def fingerprint_image(data: bytes, filename: str = "image") -> dict:
     data = bytes(data)
     if len(data) > MAX_IMAGE_BYTES:
         raise ImageError(f"the file is larger than {MAX_IMAGE_BYTES // (1024 * 1024)} MB")
-    head = data[:2048].lstrip().lower()
-    if head.startswith(b"<svg") or (head.startswith(b"<?xml") and b"<svg" in head):
-        raise ImageError("SVG vector images cannot be fingerprinted; upload a PNG, JPEG or WebP export")
+    svg = is_svg(data)
+    raster = data
+    if svg:  # vector image: SHA-256 on the SVG file itself, checks and pHash on its rendering
+        try:
+            raster = raster_bytes(data, width=None)  # the SVG's own size, for width / height
+        except Exception as e:
+            raise ImageError(f"the SVG could not be rendered ({type(e).__name__})") from None
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(BytesIO(data)) as im:
+            with Image.open(BytesIO(raster)) as im:
                 im.verify()  # structure / checksum check
-            with Image.open(BytesIO(data)) as im:
-                fmt, (w, h) = im.format or "unknown", im.size
+            with Image.open(BytesIO(raster)) as im:
+                fmt, (w, h) = "SVG" if svg else (im.format or "unknown"), im.size
                 im.load()  # full decode: catches truncated files that verify() lets through
     except (Image.DecompressionBombError, Image.DecompressionBombWarning):
         raise ImageError("the image has too many pixels to process safely") from None
@@ -91,7 +96,7 @@ def _load_input(item, default_name: str) -> tuple[str, bytes]:
 
 
 def _save_copy(fp: dict, data: bytes) -> str:
-    ext = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp", "GIF": ".gif"}.get(fp["format"]) \
+    ext = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp", "GIF": ".gif", "SVG": ".svg"}.get(fp["format"]) \
         or mimetypes.guess_extension(f"image/{fp['format'].lower()}") or ".img"
     d = store.images_dir()
     d.mkdir(parents=True, exist_ok=True)
@@ -267,6 +272,19 @@ def registered_brand_for(url: str) -> dict | None:
         return None
 
 
+_TITLE_SPLIT = re.compile(r"\s+[|\-\u2013\u2014\u00b7:\u2022]\s+|\s*[|\u2013\u2014\u00b7\u2022]\s*|:\s+")
+
+
+def brand_name_from_title(title: str, site_name: str = "") -> str:
+    """'Northstar — Gear for the long way up' -> 'Northstar'. og:site_name wins; '' when nothing name-like
+    (more than 4 words) is found."""
+    for cand in (site_name, _TITLE_SPLIT.split(title or "")[0]):
+        cand = " ".join((cand or "").split())
+        if cand and len(cand.split()) <= 4:
+            return cand
+    return ""
+
+
 def build_brand_dna(url: str) -> BrandDNA:
     """Planner entry point: crawl the store, then add the owner-registered fingerprints for its domain."""
     crawled, crawl_error = None, None
@@ -275,6 +293,11 @@ def build_brand_dna(url: str) -> BrandDNA:
         crawled = crawl(url)
     except Exception as e:
         crawl_error = f"{type(e).__name__}: {e}"
+    if crawled is not None:  # brand name from og:site_name / <title>, not the host name ("Localhost")
+        from surabhi.web import page_names
+        name = brand_name_from_title(*page_names(url))
+        if name:
+            crawled.brand_name = name
     brand = registered_brand_for(url)
     if crawled is None and brand is None:
         raise RuntimeError(f"Brand DNA: could not load {url} ({crawl_error}) and no brand is registered for it")

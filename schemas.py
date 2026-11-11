@@ -4,7 +4,10 @@ Both teammates import from here. Only ADD fields; never rename or remove.
 """
 from __future__ import annotations
 
+import base64
+import functools
 import hashlib
+import os
 import re
 from dataclasses import dataclass, field, asdict
 from io import BytesIO
@@ -22,7 +25,61 @@ def file_sha256(b: bytes) -> str:
 
 
 def photo_phash(b: bytes) -> str:
-    return str(imagehash.phash(Image.open(BytesIO(b)).convert("RGB")))
+    """Perceptual hash. SVG images are rasterized first (see raster_bytes); SHA-256 stays on the raw bytes."""
+    return str(imagehash.phash(Image.open(BytesIO(raster_bytes(b))).convert("RGB")))
+
+
+# ---------------------------------------------------------------- SVG support (added by surabhi)
+SVG_RENDER_WIDTH = 600
+
+
+def is_svg(b: bytes) -> bool:
+    head = bytes(b[:4096]).lstrip(b"\xef\xbb\xbf \t\r\n").lower()
+    return head.startswith(b"<svg") or (head.startswith((b"<?xml", b"<!doctype svg", b"<!--")) and b"<svg" in head)
+
+
+def raster_bytes(b: bytes, width: Optional[int] = SVG_RENDER_WIDTH) -> bytes:
+    """PNG bytes for an SVG image (width=None: the SVG's own size); any other image is returned unchanged."""
+    return svg_to_png(bytes(b), width) if is_svg(b) else b
+
+
+@functools.lru_cache(maxsize=512)
+def svg_to_png(b: bytes, width: Optional[int] = SVG_RENDER_WIDTH) -> bytes:
+    """Render an SVG to PNG on a white background, `width` px wide (None: its own size). Uses cairosvg; without it
+    (or without the cairo library, common on Windows) it is rendered in headless Chromium instead."""
+    try:
+        import cairosvg
+    except (ImportError, OSError):
+        return _svg_to_png_chromium(b, width)
+    return cairosvg.svg2png(bytestring=b, output_width=width, background_color="white")
+
+
+def _svg_natural_width(b: bytes) -> int:
+    """The SVG's own width: its width attribute in px, else the viewBox width, else 300 (the browser default)."""
+    tag = re.search(rb"<svg\b[^>]*>", b, re.I)
+    tag = tag.group(0) if tag else b""
+    m = re.search(rb'\swidth\s*=\s*["\']\s*([\d.]+)\s*(px)?\s*["\']', tag)
+    if m:
+        return max(1, round(float(m.group(1))))
+    m = re.search(rb'viewBox\s*=\s*["\']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)', tag)
+    return max(1, round(float(m.group(1)))) if m else 300
+
+
+def _svg_to_png_chromium(b: bytes, width: Optional[int]) -> bytes:
+    from playwright.sync_api import sync_playwright
+    width = width or _svg_natural_width(b)
+    uri = "data:image/svg+xml;base64," + base64.b64encode(b).decode("ascii")
+    with sync_playwright() as p:
+        try:
+            browser = p.chromium.launch()
+        except Exception:
+            browser = p.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH") or "/opt/pw-browsers/chromium")
+        try:
+            page = browser.new_page(viewport={"width": width, "height": width})
+            page.set_content(f'<body style="margin:0"><img id="i" src="{uri}" style="width:{width}px;display:block">')
+            return page.locator("#i").screenshot()  # on the page's white background, like cairo
+        finally:
+            browser.close()
 
 
 def is_similar(a: str, b: str) -> bool:

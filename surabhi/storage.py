@@ -6,6 +6,7 @@ suspect's `status` field so the rest of the pipeline sees them.
 """
 import json
 import os
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -119,11 +120,22 @@ def _initial_review(status):
             'reported': ('fake', 'sent')}.get(status, ('pending', 'not started'))
 
 
+def official_screenshot(brand):
+    """The official store's screenshot: BrandDNA.screenshot_path (demo data), else the one the FORGE engine
+    took for the evidence PDF (cache/screenshots/store_<url>.png), else ''."""
+    if not brand:
+        return ''
+    if brand.screenshot_path:
+        return brand.screenshot_path
+    shot = ENGINE_STATE.parent / 'screenshots' / ('store_' + re.sub(r'[^A-Za-z0-9]+', '_', brand.store_url)[:70] + '.png')
+    return str(shot) if shot.is_file() else ''
+
+
 def _case(case_id, suspect: Suspect, brand):
     return {
         'case_id': case_id, 'domain': suspect_domain(suspect), 'url': suspect.url,
         'risk_score': max(0, min(100, suspect.score)), 'label': suspect.label, 'reasons': list(suspect.reasons),
-        'official_screenshot': brand.screenshot_path if brand else '', 'fake_screenshot': suspect.screenshot_path,
+        'official_screenshot': official_screenshot(brand), 'fake_screenshot': suspect.screenshot_path,
         'matched_images': list(suspect.matched_image_pairs),
         'image_exact_matches': list(suspect.image_exact_matches), 'image_similar_matches': list(suspect.image_similar_matches),
         'logo_match': suspect.logo_match, 'domain_age_days': suspect.domain_age_days,

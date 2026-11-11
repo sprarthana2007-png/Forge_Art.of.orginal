@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import re
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
@@ -23,7 +24,7 @@ class _ImageCollector(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.found: list[tuple[str, str]] = []  # (src, role)
-        self.title, self._in_title = "", False
+        self.title, self._in_title, self.site_name = "", False, ""
 
     def handle_starttag(self, tag, attrs):
         a = {k.lower(): (v or "") for k, v in attrs}
@@ -40,6 +41,8 @@ class _ImageCollector(HTMLParser):
         elif tag == "meta" and a.get("property", a.get("name", "")).lower() in ("og:image", "twitter:image"):
             if a.get("content"):
                 self.found.append((a["content"], "og_image"))
+        elif tag == "meta" and a.get("property", a.get("name", "")).lower() == "og:site_name":
+            self.site_name = self.site_name or a.get("content", "").strip()
 
     def handle_endtag(self, tag):
         if tag == "title":
@@ -75,6 +78,20 @@ def _get(session: requests.Session, url: str, limit: int) -> tuple[bytes | None,
         return None, None, f"timed out after {TIMEOUT}s"
     except requests.exceptions.RequestException as e:
         return None, None, f"request failed ({type(e).__name__})"
+
+
+def _decode(html: bytes, resp) -> str:
+    """Charset from the Content-Type header if the server sent one, else <meta charset>, else UTF-8.
+    (requests assumes ISO-8859-1 for text/html without a charset, which garbles UTF-8 pages.)"""
+    ctype = (resp.headers.get("Content-Type", "") if resp is not None else "").lower()
+    enc = resp.encoding if resp is not None and "charset=" in ctype else None
+    if not enc:
+        m = re.search(rb"""<meta[^>]+charset\s*=\s*["']?\s*([\w-]+)""", html[:4096], re.I)
+        enc = m.group(1).decode("ascii") if m else "utf-8"
+    try:
+        return html.decode(enc, errors="replace")
+    except LookupError:  # unknown charset name
+        return html.decode("utf-8", errors="replace")
 
 
 def _data_uri(src: str) -> bytes | None:
@@ -113,7 +130,7 @@ def fetch_site(url: str, max_images: int = MAX_IMAGES) -> dict:
         out["ok"] = True
         parser = _ImageCollector()
         try:
-            parser.feed(html.decode((resp.encoding if resp is not None else None) or "utf-8", errors="replace"))
+            parser.feed(_decode(html, resp))
         except Exception as e:  # malformed markup: keep what was collected
             out["image_errors"].append({"source": out["final_url"], "error": f"HTML parse error ({type(e).__name__})"})
         out["title"] = " ".join(parser.title.split())[:200]
@@ -142,3 +159,18 @@ def fetch_site(url: str, max_images: int = MAX_IMAGES) -> dict:
             name = urlparse(full).path.rsplit("/", 1)[-1] or role
             out["images"].append({"name": name, "source": full, "role": role, "data": data})
     return out
+
+
+def page_names(url: str) -> tuple[str, str]:
+    """(<title>, og:site_name) of a page; ('', '') if it cannot be loaded."""
+    with requests.Session() as s:
+        s.headers.update({"User-Agent": UA})
+        html, resp, _ = _get(s, url if "://" in url else "https://" + url, MAX_PAGE_BYTES)
+    if html is None:
+        return "", ""
+    parser = _ImageCollector()
+    try:
+        parser.feed(_decode(html, resp))
+    except Exception:
+        pass
+    return " ".join(parser.title.split()), parser.site_name

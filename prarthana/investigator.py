@@ -15,7 +15,7 @@ from urllib.parse import urljoin
 import requests
 
 from schemas import (BrandDNA, Suspect, file_sha256, photo_phash, is_similar,
-                     hash_contact, mask_contact)
+                     hash_contact, mask_contact, raster_bytes)
 from prarthana.common import (CACHE, cache_get, cache_set, domain_of, registrable, log, launch_chromium)
 
 warnings.filterwarnings("ignore", category=UserWarning, module="PIL")
@@ -260,7 +260,7 @@ def _save_evidence_image(b: bytes, sha: str) -> str:
         try:
             from io import BytesIO
             from PIL import Image
-            im = Image.open(BytesIO(b)).convert("RGB")
+            im = Image.open(BytesIO(raster_bytes(b))).convert("RGB")  # SVG is rasterized first
             im.thumbnail((300, 300))
             im.save(p)
         except Exception:
@@ -275,7 +275,7 @@ def _big_enough(b: bytes) -> bool:
     try:
         from io import BytesIO
         from PIL import Image
-        return min(Image.open(BytesIO(b)).size) >= LINK_MIN_PX
+        return min(Image.open(BytesIO(raster_bytes(b, width=None))).size) >= LINK_MIN_PX  # SVG: its own size
     except Exception:
         return False
 

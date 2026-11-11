@@ -1,5 +1,5 @@
 {
-  "_comment": "Demo stand-in for the team pipeline: discovery, scoring and labels normally come from the other FORGE modules. analyze.py turns this list into forge_state.json.",
+  "_comment": "Demo stand-in for the team pipeline. Scores, labels and reasons are the FORGE engine's own results for these pages (python main.py on surabhi/demo_sites/serve.py; see tests/test_demo_sites.py). analyze.py turns this list into forge_state.json with screenshots.",
   "official": {
     "domain": "northstar.example",
     "url": "official/index.html",
@@ -12,14 +12,14 @@
       "url": "case1/index.html",
       "created": "2026-11-02",
       "found_by": "manual",
-      "score": 82,
+      "score": 80,
       "label": "likely_fake",
       "reasons": [
-        "5 images copied from the official store (logo and 4 product photos)",
-        "Official logo and 'Official Sale' label used",
-        "90% discount with a countdown timer",
-        "'UPI only' payment; no cards or cash on delivery",
-        "No returns; contact by WhatsApp only"
+        "+30: uses the brand's product photos (4 exact copies, 0 look-alikes).",
+        "+20: shows the brand's logo or favicon.",
+        "+15: prices at least 40% below the real store: Summit Shell Jacket at ₹1,299 vs ₹12,999 (90% off); Ridge 28L Pack at ₹649 vs ₹6,499 (90% off); Trail Runner GTX at ₹999 vs ₹8,999 (89% off); Thermal Flask 750 at ₹179 vs ₹1,799 (90% off).",
+        "+15: lists 1 phone/UPI/email contact that is not the brand's official ones (nsXXXXXXXXXXXXXXXpi).",
+        "Note (no points): scam-style phrases found: Huge discount, Countdown pressure, Claims to be official, Scarcity pressure, UPI only, No cash on delivery, No returns, WhatsApp-only contact."
       ]
     },
     {
@@ -27,13 +27,12 @@
       "url": "case2/index.html",
       "created": "2025-08-20",
       "found_by": "manual",
-      "score": 56,
+      "score": 60,
       "label": "suspicious",
       "reasons": [
-        "Similar brand name: 'North Star Outlet'",
-        "1 near-duplicate image (Summit Shell Jacket, mirrored and recoloured)",
-        "Discounts of 33–40%, within a normal outlet range",
-        "Lists cards, UPI and cash on delivery"
+        "+30: uses the brand's product photos (0 exact copies, 1 look-alike).",
+        "+15: prices at least 40% below the real store: Summit Shell Jacket at ₹7,799 vs ₹12,999 (40% off).",
+        "+15: lists 1 phone/UPI/email contact that is not the brand's official ones (ouXXXXXXXXXXXXXXXXXXXXXXXXXXXle)."
       ]
     },
     {
@@ -41,13 +40,12 @@
       "url": "case3/index.html",
       "created": "2011-06-01",
       "found_by": "manual",
-      "score": 24,
-      "label": "suspicious",
+      "score": 45,
+      "label": "ignored",
       "reasons": [
-        "4 official images used (logo and 3 product photos)",
-        "Claims to be a 'Northstar retail partner'; retailer authorization requires confirmation",
-        "Prices match the official store",
-        "Physical store address, GST invoices and 7-day returns listed"
+        "+30: uses the brand's product photos (3 exact copies, 0 look-alikes).",
+        "+15: lists 1 phone/UPI/email contact that is not the brand's official ones (heXXXXXXXXXXXXXXXXXXXXXXXXXXXle).",
+        "Note (no points): scam-style phrases found: Claims to be official."
       ]
     },
     {
@@ -56,14 +54,14 @@
       "display_url": "https://northstar-rewards.example/claim",
       "created": "2026-11-08",
       "found_by": "manual",
-      "score": 94,
+      "score": 80,
       "label": "likely_fake",
       "reasons": [
-        "Prize claim asks for a ₹49 payment",
-        "Official logo and a product photo copied",
-        "Urgency phrases: 'Only 3 prizes left', 5-minute timer",
-        "UPI-only, non-refundable fee",
-        "Fake 'just claimed' activity feed"
+        "+30: uses the brand's product photos (1 exact copy, 0 look-alikes).",
+        "+20: shows the brand's logo or favicon.",
+        "+15: prices at least 40% below the real store: Ridge 28L Pack at ₹49 vs ₹6,499 (99% off).",
+        "+15: lists 1 phone/UPI/email contact that is not the brand's official ones (nsXXXXXXXXXXXXXXXXXXXpi).",
+        "Note (no points): scam-style phrases found: Scarcity pressure, Countdown pressure, Prize or reward, Fee to claim, UPI only."
       ]
     }
   ]

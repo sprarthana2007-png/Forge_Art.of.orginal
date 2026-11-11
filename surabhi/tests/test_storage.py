@@ -36,7 +36,8 @@ class SharedStateTests(unittest.TestCase):
         data['suspects'].append({'url': 'https://harmless.example', 'domain': 'harmless.example', 'label': 'ignored'})
         self.write(data)
         cases = storage.load_cases()
-        self.assertEqual([c['case_id'] for c in cases], [1, 2, 3, 4])
+        self.assertEqual([c['case_id'] for c in cases], [1, 2, 3])  # the partner and harmless.example are ignored
+        self.assertNotIn('northstar-partner.example', [c['domain'] for c in cases])
         self.assertEqual(cases[0]['domain'], 'northstar-sale.example')
         self.assertEqual(cases[0]['official_screenshot'], 'evidence/official.png')
 
@@ -52,7 +53,7 @@ class SharedStateTests(unittest.TestCase):
         self.assertEqual(cases['northstar-sale.example']['case_id'], 1)
         self.assertEqual(cases['northstar-sale.example']['decision'], 'fake')
         self.assertEqual(cases['northstar-sale.example']['risk_score'], 99)
-        self.assertEqual(cases['new-copy.example']['case_id'], 5)
+        self.assertEqual(cases['new-copy.example']['case_id'], 4)
 
     def test_owner_decision_is_written_back_as_suspect_status(self):
         storage.load_cases()

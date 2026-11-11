@@ -20,6 +20,7 @@ Setup:  python -m pip install -r requirements-analysis.txt && python -m playwrig
 import argparse
 import io
 import json
+import os
 import re
 import sys
 import urllib.request
@@ -177,7 +178,10 @@ def main():
     brand = state.brand_dna
 
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        try:
+            browser = p.chromium.launch()
+        except Exception:  # no browser for this Playwright version: use a pre-installed Chromium
+            browser = p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or '/opt/pw-browsers/chromium')
         context = browser.new_context(viewport={'width': 1280, 'height': 1000})
         page = context.new_page()
 

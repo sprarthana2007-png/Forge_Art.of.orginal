@@ -10,6 +10,7 @@ import streamlit as st
 from PIL import Image
 
 import storage
+from schemas import raster_bytes
 
 STYLE = """
 <style>
@@ -488,7 +489,7 @@ def evidence_path(filename):
 
 @st.cache_data(show_spinner=False, max_entries=256)
 def _image_uri(path, mtime, width, top):
-    image = Image.open(path).convert('RGB')
+    image = Image.open(io.BytesIO(raster_bytes(Path(path).read_bytes()))).convert('RGB')  # SVG is rendered
     if top:
         image = image.crop((0, min(top, image.height - 1), image.width, image.height))
     if width and image.width > width:

@@ -28,7 +28,7 @@ Open the local URL printed in the terminal, usually http://localhost:8501.
 | `../schemas.py` | The team's shared schemas and hashing helpers (`BrandDNA`, `Suspect`, `ForgeState`), at the repository root |
 | `actions.py` | Calls the FORGE engine: Fake / Genuine (`confirm`), signed evidence PDF, abuse report, PDF verification |
 | `views/brand_protection.py` | Brand DNA + NameNet page (see README.md) |
-| `forge_state.json` | Demo `ForgeState`: the Northstar brand and four suspects |
+| `forge_state.json` | Demo `ForgeState`: the Northstar brand and four suspects (the partner is scored low, so it is not shown as a case) |
 | `app.py` | Entry point and page list |
 | `views/cases.py` | Case file cards, counters and a summary table |
 | `views/evidence.py` | One case file: record-sleeve case picker, evidence tabs (Overview, Images, Domain, Phrases, Verdict), owner decision |
@@ -167,19 +167,30 @@ Without a key the app still works; the Verdict tab explains how to connect. If i
 
 ## Demo sites
 
-`demo_sites/` holds five fictional websites for the made-up brand Northstar. Open any
-`index.html` in a browser to look around:
+`demo_sites/` holds five fictional websites for the made-up brand Northstar. Their images are PNGs in
+`demo_sites/assets/`; the fake cases load the very same files as the official store (so SHA-256 matches), except
+the outlet, which shows a slightly resized, recompressed copy (a perceptual-hash look-alike).
 
-| Folder | Domain | What it shows |
-| --- | --- | --- |
-| `official/` | northstar.example | The genuine brand store |
-| `case1/` | northstar-sale.example | Copied logo and product photos, 90% off, countdown, UPI only |
-| `case2/` | northstar-outlet.example | Look-alike name, one mirrored and recoloured product photo |
-| `case3/` | northstar-partner.example | A plausible authorised retailer using brand images |
-| `case4/` | northstar-rewards.example | Prize claim that asks for a fee, urgency timers, copied logo |
+| Folder | Domain | What it shows | FORGE engine result |
+| --- | --- | --- | --- |
+| `official/` | northstar.example | The genuine brand store | Brand DNA "Northstar" |
+| `case1/` | northstar-sale.example | Copied logo and product photos, 90% off, countdown, UPI only | 80, likely fake |
+| `case2/` | northstar-outlet.example | Look-alike name, a look-alike product photo, 40% off | 60, suspicious |
+| `case3/` | northstar-partner.example | An authorised retailer: brand product photos, official prices | 45, not flagged |
+| `case4/` | northstar-rewards.example | Prize claim that asks for a fee, urgency timers, copied logo | 80, likely fake |
 
-Every page carries a "Synthetic demo · not a real website" label. `demo_sites/sites.json`
-stands in for the team's discovery and scoring steps in the demo.
+Run the real FORGE engine on them (each site needs its own port: FORGE treats the store's own host:port as the
+brand's, so cases on the same port would all score 0):
+
+```bash
+python surabhi/demo_sites/serve.py          # from the repository root; prints the main.py command
+python main.py --store http://localhost:8000/official/ --suspect http://localhost:8001/case1/ \
+    --suspect http://localhost:8002/case2/ --suspect http://localhost:8003/case3/ --suspect http://localhost:8004/case4/ --fresh
+```
+
+`tests/test_demo_sites.py` checks these results. Every page carries a "Synthetic demo · not a real website" label.
+`demo_sites/sites.json` holds the engine's scores and reasons for `python analyze.py`, which builds the demo data
+(with screenshots) for the dashboard.
 
 ## Data and deployment
 

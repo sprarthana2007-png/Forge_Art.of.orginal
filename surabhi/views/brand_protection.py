@@ -18,7 +18,7 @@ import actions  # noqa: E402
 import ui  # noqa: E402
 from surabhi import brand_dna, name_net, protection, store  # noqa: E402
 
-IMAGE_TYPES = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp']
+IMAGE_TYPES = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg']
 CLASS_TEXT = {'official': 'Official', 'unrelated': 'Unrelated', 'lookalike': 'Lookalike name',
               'suspicious': 'Suspicious (live + recent)', 'not_registered': 'Not registered',
               'likely_brand_owned': 'Likely brand-owned', 'invalid': 'Invalid'}
@@ -97,7 +97,7 @@ with st.expander('Register a brand or add images', expanded=not brands):
         refs = st.file_uploader('Reference images (product photos, banners)', type=IMAGE_TYPES,
                                 accept_multiple_files=True)
         ui.note('Registering the same website again adds the new images to that brand. '
-                'SVG logos cannot be fingerprinted; upload a PNG or JPEG export.')
+                'SVG logos are rendered to an image for the visual match; exact copies match on the SVG file.')
         if st.form_submit_button('Save Brand DNA', type='primary'):
             try:
                 out = brand_dna.register_brand(name, url, logo=(logo.name, logo.getvalue()) if logo else None,

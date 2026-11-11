@@ -22,7 +22,8 @@ def test_module_does_not_reimplement_hashing():
 
 
 @pytest.mark.parametrize("data, msg", [
-    (b"", "empty"), (CORRUPT, "damaged|not a recognised"), (b"plain text", "not a recognised image"), (SVG, "SVG"),
+    (b"", "empty"), (CORRUPT, "damaged|not a recognised"), (b"plain text", "not a recognised image"),
+    (b"<svg xmlns='http://www.w3.org/2000/svg'><rect", "SVG could not be rendered"),
     (LOGO[: len(LOGO) // 2], "damaged"), (b"x" * (brand_dna.MAX_IMAGE_BYTES + 1), "larger than"),
 ])
 def test_invalid_images_are_rejected_with_a_reason(data, msg):
@@ -105,3 +106,39 @@ def test_to_brand_dna_maps_registry_to_shared_dataclass(brand_db):
     assert isinstance(dna, schemas.BrandDNA)
     assert dna.logo_sha256 == schemas.file_sha256(LOGO) and dna.photo_sha256s == [schemas.file_sha256(PHOTO_A)]
     assert dna.allow_list == ["northstar.com"] and dna.brand_name == "Northstar"
+
+
+def test_svg_is_fingerprinted_on_its_rendering():
+    real = open(brand_dna.__file__.replace("brand_dna.py", "demo_sites/assets/jacket.svg"), "rb").read()
+    fp = brand_dna.fingerprint_image(real, "jacket.svg")
+    assert fp["sha256"] == schemas.file_sha256(real)            # SHA-256 on the raw SVG bytes
+    assert (fp["format"], fp["width"], fp["height"]) == ("SVG", 400, 400)
+    png = schemas.svg_to_png(real)                              # the same artwork as a PNG export
+    assert schemas.is_similar(fp["phash"], schemas.photo_phash(png))
+    assert brand_dna.fingerprint_image(SVG)["format"] == "SVG"   # a tiny valid SVG is accepted too
+
+
+@pytest.mark.parametrize("name", ["jacket", "pack", "shoe", "flask", "tent"])
+def test_chromium_fallback_matches_cairo(name):
+    """Without cairo the SVG is rendered in Chromium; photo-like artwork gets a matching pHash either way.
+    (Flat, symmetric marks such as the logo can differ by a few bits between renderers; both sides of a
+    comparison use the same renderer, and exact copies always match by SHA-256.)"""
+    real = open(brand_dna.__file__.replace("brand_dna.py", f"demo_sites/assets/{name}.svg"), "rb").read()
+    chromium = schemas._svg_to_png_chromium(real, schemas.SVG_RENDER_WIDTH)
+    assert schemas.is_similar(schemas.photo_phash(chromium), schemas.photo_phash(real))
+
+
+def test_svg_detection_and_raster_passthrough():
+    real = open(brand_dna.__file__.replace("brand_dna.py", "demo_sites/assets/logo.svg"), "rb").read()
+    assert schemas.is_svg(real) and schemas.is_svg(b'<?xml version="1.0"?>\n<svg/>') and not schemas.is_svg(LOGO)
+    assert schemas.raster_bytes(LOGO) is LOGO                   # raster images are untouched
+    assert schemas.photo_phash(real) == schemas.photo_phash(real)  # deterministic
+
+
+@pytest.mark.parametrize("title, site, name", [
+    ("Northstar — Gear for the long way up", "", "Northstar"), ("Mitti & Dhaaga | Handmade", "", "Mitti & Dhaaga"),
+    ("Acme: outdoor gear", "", "Acme"), ("Anything — at all", "North Star Co", "North Star Co"),
+    ("A very long title without any separator", "", ""), ("", "", ""),
+])
+def test_brand_name_from_title(title, site, name):
+    assert brand_dna.brand_name_from_title(title, site) == name
