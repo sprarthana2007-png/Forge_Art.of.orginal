@@ -42,10 +42,8 @@
   sender, Resend only delivers to the account owner's own address, which is why everything goes to `GMAIL_ADDRESS`.
 
 ## What failed / limitations
-- **git push failed (HTTP 403)**: "Claude doesn't have GitHub access to this repository"; the GitHub connector was
-  also refused write access ("Resource not accessible by integration"). Commits are on the
-  local branch `claude/zealous-allen-27fdf2`; push them once GitHub access is fixed (reconnect GitHub /
-  install the Claude GitHub App on the repo).
+- git push was refused (HTTP 403) during the build until the Claude GitHub App was installed on the repo;
+  after that, everything was pushed to `claude/zealous-allen-27fdf2` and fast-forwarded to `main`.
 - RDAP has no data for some hosts (e.g. sub-domains of hosting platforms, localhost) → `domain_age_days=None`.
 - Some suspect sites time out at 20 s → logged, suspect stays `status=new`, scored 0.
 - urlscan `domain:` matches any page that *loaded* something from the brand's domain; that net is noisy
