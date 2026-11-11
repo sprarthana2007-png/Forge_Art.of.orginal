@@ -76,3 +76,12 @@ def launch_chromium(p):
             if path and _os.path.exists(path):
                 return p.chromium.launch(executable_path=path)
         raise
+
+
+def plural(n, word: str, many: str | None = None) -> str:
+    """'1 look-alike', '2 look-alikes', '1 exact copy', '2 exact copies'."""
+    if n == 1:
+        return f"{n} {word}"
+    if many is None:
+        many = word[:-1] + "ies" if word.endswith("y") and word[-2:-1] not in "aeiou" else word + "s"
+    return f"{n} {many}"

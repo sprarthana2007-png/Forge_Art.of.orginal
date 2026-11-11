@@ -75,15 +75,22 @@
 - If the Playwright browser for the pinned version is not installed, `launch_chromium` falls back to
   `CHROMIUM_PATH` or `/opt/pw-browsers/chromium`.
 - PDFs write "Rs." instead of ₹ (ReportLab's built-in Helvetica has no rupee glyph).
-- Evidence PDF redesign (`prarthana/evidence_pdf.py`, called by `alert.make_evidence_pdf`): 3-page forensic
-  report drawn on the canvas — p1 CASE FILE (navy header, case ID `FORGE-YYYYMMDD-XXXX` = date + first 4 hex
-  of SHA-256(url), score ring, verdict badge, AI-verdict quote, key-facts cards, signals checklist), p2 EVIDENCE
-  (real-store vs suspect screenshots, original → copy image pairs, score breakdown + stacked bar, masked
-  contacts), p3 ACTION (timeline, registrar + hosting abuse contacts from RDAP domain/IP, report status, next
-  steps). The last panel on each page stretches to the footer; a 2-pass render gives "Page X of N".
-  To show the real store and the brand originals, the PDF visits the store once and caches its screenshot +
-  image thumbnails in `cache/brand_assets/`. If a page overflows (many contacts) it continues on an
-  "EVIDENCE (continued)" page; contacts beyond the space show "+N more".
+- Evidence PDF "bento" theme (`prarthana/evidence_pdf.py`, called by `alert.make_evidence_pdf`): same 3 pages
+  and data as before (case file / evidence / action), restyled as rounded cards numbered across the report
+  ("01 / VERDICT" … "16 / NEXT STEPS"), on a stone background with a warm film-grain tile
+  (`prarthana/assets/grain.png`, generated once with numpy if missing). Palette is limited to stone, bone, ink,
+  muted ink, card border, signal orange + 3 tints, and sage for "original/real" things.
+  Screenshots and image thumbnails are clipped into arches; image pairs show an orange "=" with the SHA-256
+  (exact) or the pHash distance to the closest brand photo (look-alike). The extra page-1 height goes to the
+  top two rows so the summary card has no empty band. Case ID `FORGE-YYYYMMDD-XXXX` = date + first 4 hex of
+  SHA-256(url). Brand screenshot + originals are cached in `cache/brand_assets/`.
+- Fonts: Instrument Serif (regular, italic), JetBrains Mono (regular, medium), Inter Tight (regular, medium)
+  downloaded from Google Fonts as static TTFs into `prarthana/assets/fonts/` (SIL Open Font License) and
+  embedded in the PDF. All downloads worked. If a file is missing, the PDF falls back to
+  Times / Courier / Helvetica. Only Inter Tight has the ₹ glyph, so ₹ is used in Inter Tight body text and
+  "Rs." in serif / mono text.
+- Wording: singular/plural is handled by `common.plural()` ("1 look-alike", "1 exact copy", "1 day"),
+  including the scorer's reasons.
 - The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
 
 ## For Surabhi — what to use / provide

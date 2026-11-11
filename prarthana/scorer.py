@@ -5,7 +5,7 @@ import hashlib
 import ipaddress
 
 from schemas import BrandDNA, Suspect
-from prarthana.common import domain_of, registrable
+from prarthana.common import domain_of, plural, registrable
 
 PTS_PHOTO = 30
 PTS_LOGO = 20
@@ -47,7 +47,7 @@ def score_suspect(s: Suspect, dna: BrandDNA) -> Suspect:
     if s.image_exact_matches or s.image_similar_matches:
         score += PTS_PHOTO
         reasons.append(f"+{PTS_PHOTO}: uses the brand's product photos "
-                       f"({len(s.image_exact_matches)} exact copies, {len(s.image_similar_matches)} look-alikes).")
+                       f"({plural(len(s.image_exact_matches), 'exact copy')}, {plural(len(s.image_similar_matches), 'look-alike')}).")
     if s.logo_match:
         score += PTS_LOGO
         reasons.append(f"+{PTS_LOGO}: shows the brand's logo or favicon.")
@@ -68,11 +68,12 @@ def score_suspect(s: Suspect, dna: BrandDNA) -> Suspect:
         idx = [i for i, h in enumerate(s.contact_hashes) if h not in official]
         shown = ", ".join(s.contacts_masked[i] for i in idx if i < len(s.contacts_masked))
         score += PTS_CONTACT
-        reasons.append(f"+{PTS_CONTACT}: lists {len(foreign)} phone/UPI/email contact(s) that are not the brand's "
+        reasons.append(f"+{PTS_CONTACT}: lists {plural(len(foreign), 'phone/UPI/email contact')} that "
+                       f"{'is' if len(foreign) == 1 else 'are'} not the brand's "
                        f"official ones ({shown}).")
     if s.domain_age_days is not None and s.domain_age_days < YOUNG_DAYS:
         score += PTS_YOUNG
-        reasons.append(f"+{PTS_YOUNG}: domain registered only {s.domain_age_days} days ago.")
+        reasons.append(f"+{PTS_YOUNG}: domain registered only {plural(s.domain_age_days, 'day')} ago.")
     if s.scam_phrases:
         reasons.append("Note (no points): scam-style phrases found: " + ", ".join(map(str, s.scam_phrases)) + ".")
 
