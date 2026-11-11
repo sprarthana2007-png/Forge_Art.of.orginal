@@ -117,19 +117,63 @@ def rdap(domain: str):
         return None
 
 
-def domain_age_days(domain: str, state_log=None):
+def _is_local_name(d: str) -> bool:
+    d = registrable(d).lower()
+    return d in ("localhost", "") or d.endswith((".localhost", ".local", ".test", ".invalid")) or \
+        bool(re.fullmatch(r"[\d.]+", d))
+
+
+def _rdap_age(domain: str):
     data = rdap(domain)
-    if not data:
-        log(state_log, f"RDAP: no data for {domain}; domain_age_days=None")
-        return None
-    for ev in data.get("events", []):
+    for ev in (data or {}).get("events", []):
         if ev.get("eventAction") == "registration":
             try:
                 when = dt.datetime.fromisoformat(ev["eventDate"].replace("Z", "+00:00"))
                 return (dt.datetime.now(dt.timezone.utc) - when).days
             except Exception:
-                break
-    log(state_log, f"RDAP: no registration event for {domain}")
+                return None
+    return None
+
+
+def whois_age(domain: str):
+    """Fallback when RDAP has no registration date: python-whois (TCP port 43). Cached in cache/whois/."""
+    d = registrable(domain)
+    cached = cache_get("whois", d)
+    if cached is not None:
+        return cached.get("days")
+    try:
+        import whois  # python-whois
+        w = whois.whois(d, timeout=10, quiet=True)
+        cd = w.get("creation_date") if hasattr(w, "get") else getattr(w, "creation_date", None)
+        if isinstance(cd, (list, tuple)):
+            cd = min(x for x in cd if x)
+        if isinstance(cd, str):
+            cd = dt.datetime.fromisoformat(cd)
+        if not cd:
+            return None
+        if cd.tzinfo is None:
+            cd = cd.replace(tzinfo=dt.timezone.utc)
+        days = (dt.datetime.now(dt.timezone.utc) - cd).days
+        cache_set("whois", d, {"days": days})
+        return days
+    except Exception:
+        return None
+
+
+def domain_age_days(domain: str, state_log=None):
+    """Days since registration: RDAP first, python-whois as fallback, None (logged) if both fail."""
+    if _is_local_name(domain):
+        log(state_log, f"domain age: {domain} is a local address, no RDAP / WHOIS")
+        return None
+    days = _rdap_age(domain)
+    if days is not None:
+        return days
+    days = whois_age(domain)
+    if days is not None:
+        log(state_log, f"domain age: RDAP had no registration date for {domain}; WHOIS says {days} days")
+        return days
+    log(state_log, f"domain age: unknown for {domain} (no RDAP registration date and WHOIS failed); "
+                   f"domain_age_days=None")
     return None
 
 

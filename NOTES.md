@@ -94,6 +94,12 @@
   including the scorer's reasons.
 - The owner alert e-mail now has a branded HTML version (plain-text fallback kept).
 
+## WHOIS fallback for the domain age (`prarthana/investigator.py`)
+- Order: RDAP registration event → **python-whois** (`creation_date`, earliest if a list, 10 s timeout, cached in
+  `cache/whois/`) → `None` with a log line saying both failed. Local test hostnames (`*.localhost`, IPs) skip both.
+- **In this build environment WHOIS is blocked** (TCP port 43 → "connection refused"; only HTTPS goes out), so the
+  fallback is tested with a simulated WHOIS module (`tests/test_whois.py`). On a normal laptop / server it works.
+
 ## #19 The planner learns from the owner's answers (`prarthana/learning.py`)
 - Every `confirm(suspect, yes/no)` appends to `cache/feedback.json`: URL, domain, answer (`fake` / `not_fake`),
   the scorer signals that fired (`suspect.signals_fired`) and the score. The latest answer per URL wins. No contacts or
