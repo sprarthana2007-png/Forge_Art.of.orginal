@@ -195,6 +195,23 @@ def fetch_page(url: str, shot_path: str) -> dict:
 
 
 # ------------------------------------------------------------------ main entry
+def _save_evidence_image(b: bytes, sha: str) -> str:
+    """Keep a copy of a matched image (public site content, not personal data) for the evidence PDF."""
+    d = CACHE / "images"
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / f"{sha[:24]}.png"
+    if not p.exists():
+        try:
+            from io import BytesIO
+            from PIL import Image
+            im = Image.open(BytesIO(b)).convert("RGB")
+            im.thumbnail((300, 300))
+            im.save(p)
+        except Exception:
+            return ""
+    return str(p)
+
+
 def compare_images(images: dict, favicon_url: str, dna: BrandDNA):
     exact, similar, all_sha = [], [], []
     logo_match = False
@@ -212,9 +229,9 @@ def compare_images(images: dict, favicon_url: str, dna: BrandDNA):
             logo_match = True
             continue
         if sha in dna_sha:
-            exact.append({"url": img_url, "sha256": sha})
+            exact.append({"url": img_url, "sha256": sha, "path": _save_evidence_image(b, sha)})
         elif ph and any(is_similar(ph, x) for x in dna.photo_phashes or []):
-            similar.append({"url": img_url, "phash": ph})
+            similar.append({"url": img_url, "phash": ph, "path": _save_evidence_image(b, sha)})
     return exact, similar, logo_match, all_sha
 
 
