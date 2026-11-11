@@ -153,7 +153,7 @@ def send_alert(suspects: list, dna: BrandDNA, state_log=None) -> str:
         return "none"
     pdfs = [make_evidence_pdf(s, dna) for s in flagged]
     lines = [f"- {s.url}  score {s.score}/100 ({s.label})" for s in flagged]
-    body = (f"Hello,\n\nFORGE found {plural(len(flagged), "possible fake")} of your store {dna.store_url}:\n\n"
+    body = (f"Hello,\n\nFORGE found {plural(len(flagged), 'possible fake')} of your store {dna.store_url}:\n\n"
             + "\n".join(lines) +
             "\n\nEvidence PDFs are attached. Please confirm in your FORGE dashboard. "
             "Nothing is reported until you confirm.\n\n- FORGE")
