@@ -79,7 +79,8 @@ VERDICT_TEXT = {"likely_fake": "Likely fake.", "suspicious": "Suspicious.", "ign
 LABEL_TEXT = {"likely_fake": "likely fake", "suspicious": "suspicious", "ignored": "no threat found"}
 FOUND_BY = {"manual": "Owner report", "urlscan_hash": "urlscan · image hash",
             "urlscan_hotlink": "urlscan · hotlinking", "urlscan_title": "urlscan · page title",
-            "name_net": "Name net (look-alike name)"}
+            "name_net": "Name net (look-alike name)", "online_hunt": "Online hunt (look-alike name)",
+            "online_check": "Online check (owner request)"}
 STATUS_TEXT = {"new": "new", "investigated": "awaiting owner", "confirmed": "confirmed fake",
                "not_fake": "marked not fake", "reported": "reported"}
 SIGNALS = [("Product photos", 30, "Brand product photos re-used (exact or look-alike)"),

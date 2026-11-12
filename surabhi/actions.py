@@ -110,15 +110,17 @@ def abuse_report(domain):
     return {'how': how, 'abuse_email': s.abuse_email, 'demo': demo_mode(), 'pdf_path': s.pdf_path}
 
 
-def add_investigation(report, brand, found_by='manual', screenshots=True):
+def add_investigation(report, brand, found_by='online_check', screenshots=True):
     """A Brand protection investigation as a full case: the suspect, the copied images side by side and
     screenshots of the suspected site and the official site (headless Chromium; skipped if unavailable)."""
     from surabhi import brand_dna as bdna, protection, snapshot
     if storage.state_source() == 'demo':
         storage.STATE_FILE = storage.ENGINE_STATE
     shots = storage.STATE_FILE.parent / 'screenshots'
+    dna0 = bdna.to_brand_dna(brand) if brand else None
+    start_case_file(dna0)
     suspect = protection.to_suspect(report)
-    suspect.found_by = found_by
+    suspect.found_by = found_by  # 'online_hunt' / 'online_check': shown in Cases at any score
     pairs = protection.image_pairs(report, brand, storage.STATE_FILE.parent / 'evidence_images')
     suspect.matched_image_pairs = [[p['official'], p['copy'], p['kind']] for p in pairs]
     # the copies in the engine's format, so the evidence PDF can show them next to the originals
@@ -170,9 +172,12 @@ def start_case_file(brand_dna):
     shows "no cases" for the real brand instead of the demo cases."""
     if storage.state_source() == 'demo':
         storage.STATE_FILE = storage.ENGINE_STATE
-    if not storage.STATE_FILE.is_file():
-        storage.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _save(ForgeState(brand_dna=brand_dna))
+    if storage.STATE_FILE.is_file():
+        current = _load().brand_dna
+        if brand_dna is None or (current is not None and current.store_url == brand_dna.store_url):
+            return
+    storage.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _save(ForgeState(brand_dna=brand_dna))  # one brand per case file: hunting another brand starts its own
 
 
 def add_suspect(suspect, brand_dna=None):

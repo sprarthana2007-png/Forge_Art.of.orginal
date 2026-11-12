@@ -154,7 +154,8 @@ def load_cases():
     suspects, seen = [], set()
     for suspect in state.suspects:
         domain = suspect_domain(suspect)
-        if suspect.label != 'ignored' and domain not in seen:
+        online = (suspect.found_by or '').startswith('online')  # checked from the Brand page: every score is shown
+        if (suspect.label != 'ignored' or online) and domain not in seen:
             seen.add(domain)
             suspects.append(suspect)
     conn = connect()
