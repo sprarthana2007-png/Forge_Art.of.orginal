@@ -111,7 +111,13 @@ def abuse_report(domain):
 
 
 def add_suspect(suspect, brand_dna=None):
-    """Add (or update) a suspect in the state file so it becomes a case. Creates the file if needed."""
+    """Add (or update) a suspect in the state file so it becomes a case. Creates the file if needed.
+
+    While the dashboard still shows the synthetic Northstar demo, a real investigation is not mixed into it: the
+    case goes into a fresh state file (the engine's cache/state.json) under the brand it was checked against, and
+    the dashboard switches to it."""
+    if storage.state_source() == 'demo':
+        storage.STATE_FILE = storage.ENGINE_STATE
     if storage.STATE_FILE.is_file():
         state = _load()
     else:
