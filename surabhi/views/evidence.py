@@ -118,7 +118,11 @@ def tab_strip():
 def site_panel(kind, url, screenshot):
     uri = ui.image_uri(screenshot, width=1100, top=BROWSER_BAR)
     pill = '<span class="fx-pill ok">Official website</span>' if kind == 'ok' else '<span class="fx-pill bad">Suspected website</span>'
-    body = f'<img src="{uri}" alt="{escape(url)}">' if uri else '<div class="fx-note">Screenshot missing.</div>'
+    full = ui.image_uri(screenshot, width=1600) if uri else None  # whole picture, address bar included
+    body = (f'<details class="fx-zoom"><summary><img src="{uri}" alt="{escape(url)}">'
+            f'<div class="fx-zoom-hint">Click to enlarge</div>'
+            f'<span class="fx-zoom-full"><img src="{full}" alt="{escape(url)}"></span></summary></details>'
+            if uri else '<div class="fx-note">Screenshot missing.</div>')
     st.markdown(f'<div class="fx-site"><div class="fx-site-head">{pill}<span class="u">{escape(url)} ↗</span></div>{body}</div>',
                 unsafe_allow_html=True)
 

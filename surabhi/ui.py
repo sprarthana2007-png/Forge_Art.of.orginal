@@ -207,6 +207,13 @@ button:focus:not(:active) { box-shadow: 0 0 0 2px var(--accent) !important; }
 .fx-pill.ok { background: var(--green); } .fx-pill.bad { background: var(--red); }
 .fx-site-head span.u { font-family: Arial, sans-serif; font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 .fx-site img { width: 100%; display: block; border-radius: 4px; border: 1px solid var(--line); }
+.fx-zoom > summary { list-style: none; cursor: zoom-in; }
+.fx-zoom > summary::-webkit-details-marker { display: none; }
+.fx-zoom .fx-zoom-full { display: none; }
+.fx-zoom[open] .fx-zoom-full { display: flex; position: fixed; inset: 0; z-index: 1000000; background: rgba(20, 14, 10, .88);
+  align-items: flex-start; justify-content: center; overflow: auto; padding: 3vh 2vw; cursor: zoom-out; }
+.fx-zoom[open] .fx-zoom-full img { width: auto; max-width: 96vw; height: auto; border: 0; border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.fx-zoom-hint { font-family: Arial, sans-serif; font-size: .72rem; color: var(--muted); margin-top: .35rem; text-align: right; }
 
 /* Reasons and verdict column */
 .fx-side { border-left: 1px solid var(--line-strong); padding-left: 1.4rem; height: 100%; }
