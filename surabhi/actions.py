@@ -110,6 +110,28 @@ def abuse_report(domain):
     return {'how': how, 'abuse_email': s.abuse_email, 'demo': demo_mode(), 'pdf_path': s.pdf_path}
 
 
+def add_investigation(report, brand, found_by='manual', screenshots=True):
+    """A Brand protection investigation as a full case: the suspect, the copied images side by side and
+    screenshots of the suspected site and the official site (headless Chromium; skipped if unavailable)."""
+    from surabhi import brand_dna as bdna, protection, snapshot
+    if storage.state_source() == 'demo':
+        storage.STATE_FILE = storage.ENGINE_STATE
+    shots = storage.STATE_FILE.parent / 'screenshots'
+    suspect = protection.to_suspect(report)
+    suspect.found_by = found_by
+    suspect.matched_image_pairs = protection.image_pairs(report, brand, storage.STATE_FILE.parent / 'evidence_images')
+    dna = bdna.to_brand_dna(brand) if brand else None
+    if screenshots:
+        slug = re.sub(r'[^A-Za-z0-9]+', '_', report['domain']).strip('_')[:60]
+        path, _ = snapshot.take(suspect.url, shots / f'suspect_{slug}.png')
+        suspect.screenshot_path = path
+        if dna is not None and dna.store_url:
+            official = shots / ('store_' + re.sub(r'[^A-Za-z0-9]+', '_', dna.store_url)[:70] + '.png')
+            if not official.is_file():
+                snapshot.take(dna.store_url, official)
+    return add_suspect(suspect, dna)
+
+
 def add_suspect(suspect, brand_dna=None):
     """Add (or update) a suspect in the state file so it becomes a case. Creates the file if needed.
 

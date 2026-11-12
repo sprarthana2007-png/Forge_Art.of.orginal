@@ -1,1 +1,2 @@
 libcairo2
+chromium

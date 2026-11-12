@@ -179,11 +179,10 @@ with st.form('auto_hunt'):
                 hunt = protection.auto_hunt(hunt_brand, limit=int(hunt_limit), on_step=status.write, conn=conn)
                 added = []
                 brand_row = store.get_brand(conn, hunt_brand)
-                for r in hunt['reports']:
-                    if r['risk']['label'] != 'ignored':
-                        s = protection.to_suspect(r)
-                        s.found_by = 'name_net'
-                        added.append(actions.add_suspect(s, brand_dna.to_brand_dna(brand_row)))
+                risky = [r for r in hunt['reports'] if r['risk']['label'] != 'ignored']
+                for n, r in enumerate(risky, 1):
+                    status.write(f"Collecting evidence for {r['domain']} ({n} of {len(risky)}): screenshots, copied images…")
+                    added.append(actions.add_investigation(r, brand_row, found_by='name_net'))
                 status.update(label='Hunt finished', state='complete', expanded=False)
         except (ValueError, OSError) as exc:
             st.error(f'The hunt stopped: {exc}')
@@ -284,7 +283,8 @@ def show_report(r):
                      help='Review it on the Evidence page: mark it Fake, create the signed PDF, send the abuse report.'):
             try:
                 brand = store.get_brand(conn, r['brand']['id'])
-                domain = actions.add_suspect(protection.to_suspect(r), brand_dna.to_brand_dna(brand) if brand else None)
+                with st.spinner('Collecting evidence: screenshots and copied images…'):
+                    domain = actions.add_investigation(r, brand)
             except (ValueError, OSError) as exc:
                 st.error(f'Could not add the case: {exc}')
             else:
@@ -294,7 +294,7 @@ def show_report(r):
 
 shown = next((i for i in investigations if i['id'] == st.session_state.get('bp_report')), None)
 if shown:
-    show_report(shown['report'])
+    show_report({**shown['report'], 'id': shown['id']})
 
 # --- NameNet ----------------------------------------------------------------
 ui.section('NameNet · check domain variations', 3)

@@ -18,6 +18,7 @@ from schemas import Suspect
 
 LEVEL_LABEL = {"high": "likely_fake", "medium": "suspicious"}  # schemas.Suspect.label; others -> ignored
 NAME_ONLY_CAP = 49
+_IMAGES: dict = {}  # investigation id -> {image name: bytes} of the suspect's matched images (this process only)
 
 
 def assess_risk(name: dict, content: dict | None, site: dict | None) -> dict:
@@ -149,6 +150,13 @@ def investigate(target: str, brand_id: int | None = None, images=(), check_netwo
         if save:
             with conn:
                 report["id"] = store.save_investigation(conn, report)
+        # the matched images' bytes, for the Evidence page (kept in memory only, never in the saved report)
+        matched = {r["name"] for r in content["results"] if r.get("exact_matches") or r.get("similar_matches")}
+        report["_images"] = {i["name"]: i["data"] for i in submitted if i["name"] in matched and i.get("data")}
+        if report.get("id") is not None:
+            _IMAGES[report["id"]] = report["_images"]
+            while len(_IMAGES) > 64:
+                _IMAGES.pop(next(iter(_IMAGES)))
         return report
     finally:
         if own:
@@ -219,6 +227,49 @@ def auto_hunt(brand_id: int, limit: int = 10, on_step=None, conn=None, resolver=
     finally:
         if own:
             conn.close()
+
+
+def _png(data: bytes) -> bytes:
+    from io import BytesIO
+    from PIL import Image
+    from schemas import raster_bytes
+    img = Image.open(BytesIO(raster_bytes(data)))
+    img = img.convert("RGBA") if img.mode in ("P", "LA", "RGBA") else img.convert("RGB")
+    out = BytesIO()
+    img.save(out, "PNG")
+    return out.getvalue()
+
+
+def image_pairs(report: dict, brand: dict, out_dir) -> list:
+    """Side-by-side evidence for the Evidence page: [official image path, suspect image path, match kind] for every
+    suspect image that copies one of the brand's registered images. Both are saved as PNG in out_dir."""
+    from pathlib import Path
+    import re
+    data = report.get("_images") or _IMAGES.get(report.get("id")) or {}
+    refs = {i["id"]: i for i in (brand or {}).get("images", [])}
+    out_dir = Path(out_dir)
+    pairs, slug = [], re.sub(r"[^A-Za-z0-9]+", "_", report["domain"]).strip("_")[:50]
+    for n, row in enumerate(report["brand_dna"]["results"], 1):
+        hits = [(m, "Exact copy") for m in row.get("exact_matches", [])] + \
+               [(m, f"Look-alike ({m.get('similarity', '?')}% similar)") for m in row.get("similar_matches", [])]
+        hits = [(m, k) for m, k in hits if m["brand_id"] == report["brand"]["id"]]
+        if not hits or row["name"] not in data:
+            continue
+        m, kind = hits[0]
+        ref = refs.get(m["image_id"])
+        if not ref or not ref.get("stored_path") or not Path(ref["stored_path"]).is_file():
+            continue
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            official = out_dir / f"brand_{ref['id']}.png"
+            if not official.is_file():
+                official.write_bytes(_png(Path(ref["stored_path"]).read_bytes()))
+            suspect = out_dir / f"{slug}_{n}.png"
+            suspect.write_bytes(_png(data[row["name"]]))
+        except Exception:
+            continue
+        pairs.append([str(official), str(suspect), ("Logo · " if m["kind"] == "logo" else "") + kind])
+    return pairs
 
 
 def to_suspect(report: dict) -> Suspect:
