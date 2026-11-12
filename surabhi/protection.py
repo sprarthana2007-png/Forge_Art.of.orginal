@@ -61,7 +61,7 @@ def assess_risk(name: dict, content: dict | None, site: dict | None) -> dict:
 
     score = min(100, name_pts + infra + content_pts)
     if content_pts:
-        level = "high" if score >= 70 else "medium" if score >= 40 else "low"
+        level = "high" if score >= 75 else "medium" if score >= 50 else "low"  # the engine's thresholds
         basis = "content evidence" + (" + name similarity" if name_pts else "")
         reasons.append("Brand DNA: the site shows " + "; ".join(t for _, t in parts) + ".")
         if not name_pts:
@@ -248,8 +248,8 @@ def _png(data: bytes) -> bytes:
 
 
 def image_pairs(report: dict, brand: dict, out_dir) -> list:
-    """Side-by-side evidence for the Evidence page: [official image path, suspect image path, match kind] for every
-    suspect image that copies one of the brand's registered images. Both are saved as PNG in out_dir."""
+    """Every suspect image that copies one of the brand's registered images, saved as PNG next to the brand's
+    original: [{official, copy, kind, exact, logo, url, sha256, phash, ref_sha256, ref_phash}]."""
     from pathlib import Path
     import re
     data = report.get("_images") or _IMAGES.get(report.get("id")) or {}
@@ -257,12 +257,11 @@ def image_pairs(report: dict, brand: dict, out_dir) -> list:
     out_dir = Path(out_dir)
     pairs, slug = [], re.sub(r"[^A-Za-z0-9]+", "_", report["domain"]).strip("_")[:50]
     for n, row in enumerate(report["brand_dna"]["results"], 1):
-        hits = [(m, "Exact copy") for m in row.get("exact_matches", [])] + \
-               [(m, f"Look-alike ({m.get('similarity', '?')}% similar)") for m in row.get("similar_matches", [])]
-        hits = [(m, k) for m, k in hits if m["brand_id"] == report["brand"]["id"]]
+        hits = [(m, True) for m in row.get("exact_matches", [])] + [(m, False) for m in row.get("similar_matches", [])]
+        hits = [(m, e) for m, e in hits if m["brand_id"] == report["brand"]["id"]]
         if not hits or row["name"] not in data:
             continue
-        m, kind = hits[0]
+        m, exact = hits[0]
         ref = refs.get(m["image_id"])
         if not ref or not ref.get("stored_path") or not Path(ref["stored_path"]).is_file():
             continue
@@ -271,12 +270,66 @@ def image_pairs(report: dict, brand: dict, out_dir) -> list:
             official = out_dir / f"brand_{ref['id']}.png"
             if not official.is_file():
                 official.write_bytes(_png(Path(ref["stored_path"]).read_bytes()))
-            suspect = out_dir / f"{slug}_{n}.png"
-            suspect.write_bytes(_png(data[row["name"]]))
+            copy = out_dir / f"{slug}_{n}.png"
+            copy.write_bytes(_png(data[row["name"]]))
         except Exception:
             continue
-        pairs.append([str(official), str(suspect), ("Logo · " if m["kind"] == "logo" else "") + kind])
+        kind = "Exact copy" if exact else f"Look-alike ({m.get('similarity', '?')}% similar)"
+        pairs.append({"official": str(official), "copy": str(copy), "exact": exact, "logo": m["kind"] == "logo",
+                      "kind": ("Logo · " if m["kind"] == "logo" else "") + kind,
+                      "url": row.get("source") or row["name"], "sha256": row.get("sha256", ""),
+                      "phash": row.get("phash", ""), "ref_sha256": ref["sha256"], "ref_phash": ref["phash"]})
     return pairs
+
+
+def engine_reasons(report: dict) -> list:
+    """The investigation's points written the way the FORGE engine writes them ('+30: uses the brand's product
+    photos ...'), so the evidence PDF and the dashboard show them as the same signals. The points add up to the
+    investigation's score."""
+    risk, name = report["risk"], report["name_net"]
+    comp, content = risk["components"], report["brand_dna"].get("matches_for_brand") or {}
+    if risk["level"] == "official" or not risk["score"]:
+        return list(risk["reasons"])
+    rows = []
+    logo = bool(content.get("logo_exact") or content.get("logo_similar"))
+    c = comp.get("content", 0)
+    if c:
+        logo_pts = min(20, c) if logo else 0
+        photo_pts = c - logo_pts
+        ex = content.get("exact", 0) - (1 if content.get("logo_exact") else 0)
+        si = content.get("similar", 0) - (1 if content.get("logo_similar") else 0)
+        if logo_pts:
+            rows.append([logo_pts, f"shows the brand's logo ({'exact copy' if content.get('logo_exact') else 'look-alike'}).", False])
+        if photo_pts:
+            rows.append([min(30, photo_pts), f"uses the brand's product photos ({ex} exact cop{'y' if ex == 1 else 'ies'}, "
+                                            f"{si} look-alike{'s' * (si != 1)}).", False])
+            if photo_pts > 30:
+                rows.append([photo_pts - 30, "several brand images copied (extra weight).", True])
+    if comp.get("name"):
+        tech = (name.get("techniques") or [{}])[0].get("detail") or f"{name.get('similarity', 0)}% similar to the brand"
+        rows.append([comp["name"], f"look-alike name: {tech}.", True])
+    infra, age = comp.get("infrastructure", 0), name.get("domain_age_days")
+    if infra:
+        if age is not None and age < 30:
+            rows.append([min(10, infra), f"domain registered {age} days ago.", False])
+            infra -= min(10, infra)
+        if infra:
+            rows.append([infra, "website is live" + (f" and only {age} days old" if age is not None and age < 180 else "") + ".", True])
+    extra = sum(r[0] for r in rows) - risk["score"]  # caps in the score (e.g. a name alone is capped at 49)
+    for r in reversed(rows):
+        if extra <= 0:
+            break
+        if r[2]:
+            cut = min(extra, r[0])
+            r[0] -= cut
+            extra -= cut
+    out = [f"+{p}: {t}" for p, t, _ in rows if p > 0]
+    out.append("Note (no points): online check (name, DNS, age, images); the full FORGE engine adds 4 more checks.")
+    return out
+
+
+def _engine_label(score: int) -> str:
+    return "likely_fake" if score >= 75 else "suspicious" if score >= 50 else "ignored"
 
 
 def to_suspect(report: dict) -> Suspect:
@@ -303,5 +356,5 @@ def to_suspect(report: dict) -> Suspect:
     return Suspect(url=(report.get("website") or {}).get("final_url") or report["target"], domain=report["domain"],
                    found_by="manual", image_exact_matches=exact, image_similar_matches=similar, logo_match=logo,
                    domain_age_days=name.get("domain_age_days"), score=report["risk"]["score"],
-                   label=report["risk"]["label"], reasons=list(report["risk"]["reasons"]),
+                   label=_engine_label(report["risk"]["score"]), reasons=engine_reasons(report),
                    verdict=report["risk"]["summary"], ip=(name.get("dns", {}).get("addresses") or [None])[0])

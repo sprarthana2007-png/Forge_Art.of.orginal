@@ -72,9 +72,9 @@ def launch_chromium(p):
     try:
         return p.chromium.launch()
     except Exception:
-        for path in (env("CHROMIUM_PATH"), "/opt/pw-browsers/chromium"):
+        for path in (env("CHROMIUM_PATH"), "/opt/pw-browsers/chromium", "/usr/bin/chromium"):  # last: Streamlit Cloud
             if path and _os.path.exists(path):
-                return p.chromium.launch(executable_path=path)
+                return p.chromium.launch(executable_path=path, args=["--no-sandbox", "--disable-dev-shm-usage"])
         raise
 
 

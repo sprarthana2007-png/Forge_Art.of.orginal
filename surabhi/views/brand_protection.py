@@ -179,7 +179,7 @@ with st.form('auto_hunt'):
                 hunt = protection.auto_hunt(hunt_brand, limit=int(hunt_limit), on_step=status.write, conn=conn)
                 added = []
                 brand_row = store.get_brand(conn, hunt_brand)
-                risky = [r for r in hunt['reports'] if r['risk']['label'] != 'ignored']
+                risky = [r for r in hunt['reports'] if r['risk']['score'] >= 50]  # suspicious (50+) and likely fake (75+)
                 for n, r in enumerate(risky, 1):
                     status.write(f"Collecting evidence for {r['domain']} ({n} of {len(risky)}): screenshots, copied images…")
                     added.append(actions.add_investigation(r, brand_row, found_by='name_net'))
@@ -284,7 +284,9 @@ def show_report(r):
     ui.section('Why')
     for reason in risk['reasons']:
         st.markdown(f'- {escape(reason)}')
-    if risk['level'] not in ('official', 'none'):
+    if risk['level'] not in ('official', 'none') and risk['score'] < 50:
+        ui.note('Under 50: not added to the case files (cases start at 50 = suspicious). Keep it on the watch list.')
+    elif risk['level'] not in ('official', 'none'):
         if st.button('Add to case files', key=f"bp_case_{r.get('id')}",
                      help='Review it on the Evidence page: mark it Fake, create the signed PDF, send the abuse report.'):
             try:

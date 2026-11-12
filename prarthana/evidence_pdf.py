@@ -137,7 +137,7 @@ def brand_assets(dna: BrandDNA) -> dict:
     """Screenshot of the REAL store + thumbnails of its images (for original -> copy pairs). Cached."""
     key = dna.store_url
     cached = cache_get("brand_assets", key)
-    if cached and Path(cached.get("screenshot", "")).exists():
+    if cached and (Path(cached.get("screenshot") or "-").exists() or cached.get("by_sha")):
         return cached
     from prarthana.investigator import fetch_page, _save_evidence_image
     from schemas import file_sha256, photo_phash

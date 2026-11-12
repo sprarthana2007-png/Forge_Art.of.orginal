@@ -119,17 +119,50 @@ def add_investigation(report, brand, found_by='manual', screenshots=True):
     shots = storage.STATE_FILE.parent / 'screenshots'
     suspect = protection.to_suspect(report)
     suspect.found_by = found_by
-    suspect.matched_image_pairs = protection.image_pairs(report, brand, storage.STATE_FILE.parent / 'evidence_images')
+    pairs = protection.image_pairs(report, brand, storage.STATE_FILE.parent / 'evidence_images')
+    suspect.matched_image_pairs = [[p['official'], p['copy'], p['kind']] for p in pairs]
+    # the copies in the engine's format, so the evidence PDF can show them next to the originals
+    suspect.image_exact_matches = [{'url': p['url'], 'sha256': p['sha256'], 'path': p['copy']}
+                                   for p in pairs if p['exact'] and not p['logo']]
+    suspect.image_similar_matches = [{'url': p['url'], 'phash': p['phash'], 'path': p['copy']}
+                                     for p in pairs if not p['exact'] and not p['logo']]
+    suspect.logo_match = suspect.logo_match or any(p['logo'] for p in pairs)
     dna = bdna.to_brand_dna(brand) if brand else None
+    official = None
+    if dna is not None and dna.store_url:
+        official = shots / ('store_' + re.sub(r'[^A-Za-z0-9]+', '_', dna.store_url)[:70] + '.png')
     if screenshots:
         slug = re.sub(r'[^A-Za-z0-9]+', '_', report['domain']).strip('_')[:60]
         path, _ = snapshot.take(suspect.url, shots / f'suspect_{slug}.png')
         suspect.screenshot_path = path
-        if dna is not None and dna.store_url:
-            official = shots / ('store_' + re.sub(r'[^A-Za-z0-9]+', '_', dna.store_url)[:70] + '.png')
-            if not official.is_file():
-                snapshot.take(dna.store_url, official)
+        if official is not None and not official.is_file():
+            snapshot.take(dna.store_url, official)
+    if official is not None:
+        _brand_assets_for_pdf(dna, brand, official, storage.STATE_FILE.parent / 'evidence_images')
     return add_suspect(suspect, dna)
+
+
+def _brand_assets_for_pdf(dna, brand, screenshot, out_dir):
+    """Give the evidence PDF the official screenshot and the brand's registered images (PNG), in the cache entry
+    it reads (prarthana.evidence_pdf.brand_assets), so it does not need to open the official site itself."""
+    try:
+        from surabhi import protection
+        from prarthana.common import cache_set
+        out_dir.mkdir(parents=True, exist_ok=True)
+        by_sha, by_phash = {}, []
+        for img in (brand or {}).get('images', []):
+            src = Path(img.get('stored_path') or '')
+            if not src.is_file():
+                continue
+            png = out_dir / f"brand_{img['id']}.png"
+            if not png.is_file():
+                png.write_bytes(protection._png(src.read_bytes()))
+            by_sha[img['sha256']] = str(png)
+            by_phash.append([img['phash'], str(png)])
+        cache_set('brand_assets', dna.store_url,
+                  {'screenshot': str(screenshot) if screenshot.is_file() else '', 'by_sha': by_sha, 'by_phash': by_phash})
+    except Exception:
+        pass  # the PDF then falls back to opening the official site itself
 
 
 def add_suspect(suspect, brand_dna=None):
