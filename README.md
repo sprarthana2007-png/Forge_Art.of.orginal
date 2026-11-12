@@ -6,6 +6,8 @@ and — only after **you** confirm "Yes, it's fake" — sends an evidence PDF an
 
 AgentX Hackathon 2026 · PS-07 open track · **Team Shared 21**
 
+Team: **Prarthana S** (FORGE engine, `prarthana/`) · **Surabhi Muddan** (dashboard + Brand DNA, `surabhi/`)
+
 ## Privacy rules
 - No real personal data is stored. Phone numbers, UPI IDs and e-mails found on suspect sites are
   SHA-256 hashed and shown masked (e.g. `98XXXXXX21`); raw values never leave memory.
