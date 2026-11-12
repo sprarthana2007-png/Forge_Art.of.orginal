@@ -5,3 +5,18 @@ imagehash>=4.3
 pillow>=10
 requests>=2.31
 python-dotenv>=1.0
+# FORGE engine, so "Fake", the signed evidence PDF and the abuse report also work when only this file is installed
+# (Streamlit Community Cloud installs the requirements.txt next to the entrypoint, surabhi/app.py)
+reportlab==5.0.1
+pyHanko[opentype]==0.38.1
+pyhanko-certvalidator==0.33.0
+cryptography==50.0.1
+fonttools==4.68.0
+uharfbuzz==0.57.0
+numpy==2.5.3
+networkx==3.7
+matplotlib==3.11.2
+pyvis==0.3.2
+python-whois==0.9.6
+tzdata==2026.6
+langgraph==1.2.20
