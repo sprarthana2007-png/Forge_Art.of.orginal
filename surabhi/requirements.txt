@@ -20,3 +20,4 @@ pyvis==0.3.2
 python-whois==0.9.6
 tzdata==2026.6
 langgraph==1.2.20
+cairosvg==2.9.1
