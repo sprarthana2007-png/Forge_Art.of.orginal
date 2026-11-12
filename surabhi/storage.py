@@ -263,7 +263,10 @@ def load_profile():
         saved = dict(conn.execute('SELECT key, value FROM profile').fetchall())
     finally:
         conn.close()
-    return {field: saved.get(field, PROFILE_DEFAULTS.get(field, '')) for field in PROFILE_FIELDS}
+    # FORGE_<FIELD> environment variables (e.g. Streamlit secrets) fill the defaults, so the details survive a
+    # restart of a hosted app whose disk is wiped; anything saved on the Settings page still wins.
+    return {field: saved.get(field, os.getenv(f'FORGE_{field.upper()}') or PROFILE_DEFAULTS.get(field, ''))
+            for field in PROFILE_FIELDS}
 
 
 def save_profile(**fields):
