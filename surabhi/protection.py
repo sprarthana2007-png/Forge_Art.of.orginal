@@ -128,6 +128,12 @@ def investigate(target: str, brand_id: int | None = None, images=(), check_netwo
 
         brand_content = agg.get(brand["id"])
         risk = assess_risk(name, brand_content, site)
+        if redirects_to_official(site, brand["official_domain"]):  # the brand's own defensive domain
+            risk = assess_risk({"classification": "official", "reasons": []}, None, None)
+            risk["basis"] = "redirects to the official website"
+            risk["summary"] = (f"{domain} sends visitors to {brand['official_domain']}, so it is most likely the "
+                               f"brand's own domain, not a copy.")
+            risk["reasons"] = [risk["summary"]]
         report = {
             "target": target, "domain": domain, "created_at": store.now(),
             "brand": {k: brand[k] for k in ("id", "name", "official_domain", "official_url")},
@@ -144,6 +150,72 @@ def investigate(target: str, brand_id: int | None = None, images=(), check_netwo
             with conn:
                 report["id"] = store.save_investigation(conn, report)
         return report
+    finally:
+        if own:
+            conn.close()
+
+
+def redirects_to_official(site: dict | None, official_domain: str) -> bool:
+    """True when the fetched site ended up on the brand's official domain (or one of its subdomains)."""
+    if not site or not site.get("ok") or not site.get("final_url"):
+        return False
+    try:
+        final = nn.normalize_domain(site["final_url"])
+        official = nn.normalize_domain(official_domain)
+    except ValueError:
+        return False
+    strip = lambda d: d[4:] if d.startswith("www.") else d  # noqa: E731
+    final, official = strip(final), strip(official)
+    return final == official or final.endswith("." + official)
+
+
+def images_from_website(url: str, fetcher=None, max_images: int = 12) -> tuple:
+    """Logo and reference images downloaded from the brand's own website, for registering a brand without uploads.
+    Returns (logo or None, [reference images], site dict); each image is a (filename, bytes) pair."""
+    site = (fetcher or web.fetch_site)(url, max_images=max_images)
+    imgs = site.get("images", [])
+    logo = next((i for i in imgs if i["role"] == "logo"), None) or next((i for i in imgs if i["role"] == "favicon"), None)
+    refs = [(i["name"], i["data"]) for i in imgs if i is not logo]
+    return ((logo["name"], logo["data"]) if logo else None), refs, site
+
+
+def auto_hunt(brand_id: int, limit: int = 10, on_step=None, conn=None, resolver=None, age_lookup=None,
+              fetcher=None) -> dict:
+    """The whole hunt with no input: NameNet finds live lookalike domains of the brand, then every one of them is
+    investigated (website downloaded, images compared with the Brand DNA, DNS and domain age checked).
+
+    Domains on the brand's own servers and domains that redirect to the official site are left out as
+    brand-owned. Returns {'scan': NameNet result, 'reports': [investigation reports], 'skipped': [...]}.
+    on_step(text) is called before each step so the caller can show progress."""
+    step = on_step or (lambda _t: None)
+    own = conn is None
+    conn = conn or store.connect()
+    try:
+        brand = store.get_brand(conn, brand_id)
+        if not brand:
+            raise ValueError(f"No registered brand with id {brand_id}.")
+        step(f"Looking for live lookalike domains of {brand['official_domain']}…")
+        scan = nn.scan_variants(brand["official_domain"], brand["name"], resolver=resolver, age_lookup=age_lookup)
+        skipped, todo = [], []
+        for f in scan["findings"]:
+            with conn:
+                store.save_finding(conn, brand["id"], f)
+            if f["classification"] == "likely_brand_owned":
+                skipped.append({"domain": f["domain"], "why": "runs on the brand's own servers"})
+            else:
+                todo.append(f["domain"])
+        reports = []
+        for n, domain in enumerate(todo[:limit], 1):
+            step(f"Investigating {domain} ({n} of {min(len(todo), limit)})…")
+            r = investigate(domain, brand["id"], check_network=True, fetch_website=True, resolver=resolver,
+                            age_lookup=age_lookup, fetcher=fetcher, conn=conn)
+            if r["risk"]["level"] == "official":
+                skipped.append({"domain": domain, "why": r["risk"]["basis"]})
+            else:
+                reports.append(r)
+        skipped += [{"domain": d, "why": f"not investigated (limit of {limit} per hunt)"} for d in todo[limit:]]
+        reports.sort(key=lambda r: -r["risk"]["score"])
+        return {"scan": scan, "reports": reports, "skipped": skipped, "brand": brand}
     finally:
         if own:
             conn.close()

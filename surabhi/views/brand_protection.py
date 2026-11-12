@@ -132,12 +132,20 @@ with st.expander('Register a brand or add images', expanded=not brands):
         logo = st.file_uploader('Brand logo', type=IMAGE_TYPES)
         refs = st.file_uploader('Reference images (product photos, banners)', type=IMAGE_TYPES,
                                 accept_multiple_files=True)
-        ui.note('Registering the same website again adds the new images to that brand. '
+        ui.note('No images? Leave both empty: FORGE downloads the logo and images from the official website. '
+                'Registering the same website again adds the new images to that brand. '
                 'SVG logos are rendered to an image for the visual match; exact copies match on the SVG file.')
         if st.form_submit_button('Save Brand DNA', type='primary'):
             try:
-                out = brand_dna.register_brand(name, url, logo=(logo.name, logo.getvalue()) if logo else None,
-                                               reference_images=uploads(refs), conn=conn)
+                logo_in, refs_in = ((logo.name, logo.getvalue()) if logo else None), uploads(refs)
+                if logo_in is None and not refs_in and name.strip() and url.strip():
+                    with st.spinner('Downloading the logo and images from the official website…'):
+                        logo_in, refs_in, site = protection.images_from_website(url.strip())
+                    if logo_in is None and not refs_in:
+                        st.warning('No images could be downloaded from the website'
+                                   + (f" ({site['error']})" if site.get('error') else '')
+                                   + '. The brand is saved by name; upload a logo for the image check.')
+                out = brand_dna.register_brand(name, url, logo=logo_in, reference_images=refs_in, conn=conn)
             except ValueError as exc:
                 st.error(str(exc))
             else:
@@ -155,6 +163,53 @@ if not brands:
     st.stop()
 brand_ids = [b['id'] for b in brands]
 brand_names = {b['id']: f"{b['name']} ({b['official_domain']})" for b in brands}
+
+# --- Auto-hunt --------------------------------------------------------------
+ui.section('Hunt automatically')
+ui.note('One click: NameNet finds the live lookalike domains of the brand, then FORGE investigates every one of '
+        'them by itself and puts the risky ones in the case files. Domains that belong to the brand (same servers '
+        'or a redirect to the official site) are left out.')
+with st.form('auto_hunt'):
+    a, b = st.columns([3, 2])
+    hunt_brand = a.selectbox('Brand', brand_ids, format_func=brand_names.get, key='hunt_brand')
+    hunt_limit = b.number_input('Sites to investigate', min_value=1, max_value=20, value=8)
+    if st.form_submit_button('Start the hunt', type='primary'):
+        try:
+            with st.status('Hunting…', expanded=True) as status:
+                hunt = protection.auto_hunt(hunt_brand, limit=int(hunt_limit), on_step=status.write, conn=conn)
+                added = []
+                brand_row = store.get_brand(conn, hunt_brand)
+                for r in hunt['reports']:
+                    if r['risk']['label'] != 'ignored':
+                        s = protection.to_suspect(r)
+                        s.found_by = 'name_net'
+                        added.append(actions.add_suspect(s, brand_dna.to_brand_dna(brand_row)))
+                status.update(label='Hunt finished', state='complete', expanded=False)
+        except (ValueError, OSError) as exc:
+            st.error(f'The hunt stopped: {exc}')
+        else:
+            st.session_state['hunt_result'] = {
+                'scan': {k: hunt['scan'].get(k) for k in ('checked', 'dns', 'error')},
+                'found': len(hunt['scan']['findings']), 'added': added, 'skipped': hunt['skipped'],
+                'rows': [(r['domain'], r['risk']['score'], r['risk']['level'], r['risk']['summary'])
+                         for r in hunt['reports']]}
+            st.rerun()
+
+hunt_result = st.session_state.get('hunt_result')
+if hunt_result:
+    sc = hunt_result['scan']
+    if sc.get('dns') != 'ok':
+        st.warning(f"DNS is unavailable ({sc.get('error')}); lookalike domains cannot be verified right now.")
+    else:
+        st.success(f"Checked {sc['checked']} possible lookalike names: {hunt_result['found']} exist online, "
+                   f"{len(hunt_result['rows'])} investigated, {len(hunt_result['added'])} added to the case files."
+                   + (' Open Cases to review them.' if hunt_result['added'] else ''))
+    if hunt_result['rows']:
+        table(('Domain', 'Risk', 'Level', 'Summary'),
+              [[ui.breakable(d), meter(score), tag(LEVEL_TEXT.get(level, level), solid=level == 'high'), escape(summary)]
+               for d, score, level, summary in hunt_result['rows']])
+    if hunt_result['skipped']:
+        ui.note('Left out: ' + '; '.join(f"{s['domain']} ({s['why']})" for s in hunt_result['skipped'][:12]))
 
 # --- Investigate ------------------------------------------------------------
 ui.section('Investigate a suspicious domain or website', 2)
