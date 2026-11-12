@@ -378,8 +378,11 @@ def load_cases_or_stop():
         st.error(f'Unable to load cases: {exc}')
         st.stop()
     if not cases:
-        st.info('No suspects to review yet. Run the FORGE engine (`python main.py --store <your store URL>` '
-                'from the repository root) or the demo (`python analyze.py`).')
+        brand = getattr(getattr(storage.read_state(), 'brand_dna', None), 'brand_name', '') if storage.STATE_FILE.is_file() else ''
+        st.info((f'No cases for {brand} yet: no site scored 50 or more (50 = suspicious). ' if brand else
+                 'No suspects to review yet. ') +
+                'Every site the hunt checked, with its score, is listed on the Brand page under "Hunt automatically". '
+                'Run a hunt there, or the full FORGE engine (`python main.py --store <your store URL>`).')
         st.stop()
     source_note()
     return cases

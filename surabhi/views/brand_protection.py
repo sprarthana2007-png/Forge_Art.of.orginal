@@ -179,6 +179,7 @@ with st.form('auto_hunt'):
                 hunt = protection.auto_hunt(hunt_brand, limit=int(hunt_limit), on_step=status.write, conn=conn)
                 added = []
                 brand_row = store.get_brand(conn, hunt_brand)
+                actions.start_case_file(brand_dna.to_brand_dna(brand_row))
                 risky = [r for r in hunt['reports'] if r['risk']['score'] >= 50]  # suspicious (50+) and likely fake (75+)
                 for n, r in enumerate(risky, 1):
                     status.write(f"Collecting evidence for {r['domain']} ({n} of {len(risky)}): screenshots, copied images…")

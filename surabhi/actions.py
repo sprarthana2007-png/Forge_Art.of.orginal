@@ -165,6 +165,16 @@ def _brand_assets_for_pdf(dna, brand, screenshot, out_dir):
         pass  # the PDF then falls back to opening the official site itself
 
 
+def start_case_file(brand_dna):
+    """Leave the Northstar demo for this brand's own (possibly empty) case file, so a hunt that finds nothing
+    shows "no cases" for the real brand instead of the demo cases."""
+    if storage.state_source() == 'demo':
+        storage.STATE_FILE = storage.ENGINE_STATE
+    if not storage.STATE_FILE.is_file():
+        storage.STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _save(ForgeState(brand_dna=brand_dna))
+
+
 def add_suspect(suspect, brand_dna=None):
     """Add (or update) a suspect in the state file so it becomes a case. Creates the file if needed.
 
