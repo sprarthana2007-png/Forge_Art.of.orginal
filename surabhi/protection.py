@@ -211,7 +211,14 @@ def auto_hunt(brand_id: int, limit: int = 10, on_step=None, conn=None, resolver=
             if f["classification"] == "likely_brand_owned":
                 skipped.append({"domain": f["domain"], "why": "runs on the brand's own servers"})
             else:
-                todo.append(f["domain"])
+                todo.append(f)
+        # shop-style names first ('allbirds-sale.com', 'allbirdsoutlet.com'): that is where clone stores live;
+        # plain extension swaps ('allbirds.xyz') are mostly parked or for sale, so they come last
+        rank = {"keyword_added": 0, "brand_embedded": 1, "hyphenation": 2, "homoglyph": 2, "substitution": 3,
+                "insertion": 3, "deletion": 3, "repetition": 3, "transposition": 3, "subdomain_brand": 3}
+        todo.sort(key=lambda f: (f["classification"] != "suspicious",
+                                 min((rank.get(t["type"], 4) for t in f.get("techniques", [])), default=4)))
+        todo = [f["domain"] for f in todo]
         reports = []
         for n, domain in enumerate(todo[:limit], 1):
             step(f"Investigating {domain} ({n} of {min(len(todo), limit)})…")

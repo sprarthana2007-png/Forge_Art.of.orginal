@@ -172,7 +172,7 @@ ui.note('One click: NameNet finds the live lookalike domains of the brand, then 
 with st.form('auto_hunt'):
     a, b = st.columns([3, 2])
     hunt_brand = a.selectbox('Brand', brand_ids, format_func=brand_names.get, key='hunt_brand')
-    hunt_limit = b.number_input('Sites to investigate', min_value=1, max_value=20, value=8)
+    hunt_limit = b.number_input('Sites to investigate', min_value=1, max_value=40, value=20)
     if st.form_submit_button('Start the hunt', type='primary'):
         try:
             with st.status('Hunting…', expanded=True) as status:
@@ -208,7 +208,13 @@ if hunt_result:
               [[ui.breakable(d), meter(score), tag(LEVEL_TEXT.get(level, level), solid=level == 'high'), escape(summary)]
                for d, score, level, summary in hunt_result['rows']])
     if hunt_result['skipped']:
-        ui.note('Left out: ' + '; '.join(f"{s['domain']} ({s['why']})" for s in hunt_result['skipped'][:12]))
+        limited = [s['domain'] for s in hunt_result['skipped'] if s['why'].startswith('not investigated')]
+        owned = [s for s in hunt_result['skipped'] if not s['why'].startswith('not investigated')]
+        if owned:
+            ui.note('Left out as the brand\'s own: ' + '; '.join(f"{s['domain']} ({s['why']})" for s in owned))
+        if limited:
+            ui.note(f'Not investigated this time ({len(limited)}, over the limit; raise "Sites to investigate" or '
+                    f'paste one into Investigate below): ' + ', '.join(limited))
 
 # --- Investigate ------------------------------------------------------------
 ui.section('Investigate a suspicious domain or website', 2)
